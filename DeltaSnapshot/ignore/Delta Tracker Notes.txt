@@ -1,0 +1,16 @@
+
+Set steps
+---------
+initiate run
+get prev run id
+
+return result incl. run isSuccess
+
+Atomic steps
+------------
+lock dataSetId/EntityId in cache {
+	start run
+	perform delta processing
+	........
+	complete/fail run	
+}
