@@ -108,27 +108,27 @@ namespace TesterCs.Database {
             });
         }
 
-        public void Update(ICacheEntryType<T> cacheEntry) {
-            string sql = @" UPDATE  dlta_cache_entry 
-                            SET     data_set_id             = :DataSetId,
-                                    run_id                  = :RunId,
-                                    entity_identifier       = :EntityIdentifier,
-                                    entity_delta_code       = :EntityDeltaCode,
-                                    entity_delta_date       = :EntityDeltaDate,
-                                    entity_data_current     = :EntityDataCurrent,
-                                    entity_data_previous    = :EntityDataPrevious
-                            WHERE cache_entry_id = :CacheEntryId ";
-            unitOfWork.Connection.Execute(sql, new {
-                cacheEntry.DataSetId,
-                cacheEntry.RunId,
-                cacheEntry.EntityIdentifier,
-                cacheEntry.EntityDeltaCode,
-                cacheEntry.EntityDeltaDate,
-                cacheEntry.EntityDataCurrent,
-                cacheEntry.EntityDataPrevious,
-                cacheEntry.CacheEntryId
-            });
-        }
+        //public void Update(ICacheEntryType<T> cacheEntry) {
+        //    string sql = @" UPDATE  dlta_cache_entry 
+        //                    SET     data_set_id             = :DataSetId,
+        //                            run_id                  = :RunId,
+        //                            entity_identifier       = :EntityIdentifier,
+        //                            entity_delta_code       = :EntityDeltaCode,
+        //                            entity_delta_date       = :EntityDeltaDate,
+        //                            entity_data_current     = :EntityDataCurrent,
+        //                            entity_data_previous    = :EntityDataPrevious
+        //                    WHERE cache_entry_id = :CacheEntryId ";
+        //    unitOfWork.Connection.Execute(sql, new {
+        //        cacheEntry.DataSetId,
+        //        cacheEntry.RunId,
+        //        cacheEntry.EntityIdentifier,
+        //        cacheEntry.EntityDeltaCode,
+        //        cacheEntry.EntityDeltaDate,
+        //        cacheEntry.EntityDataCurrent,
+        //        cacheEntry.EntityDataPrevious,
+        //        cacheEntry.CacheEntryId
+        //    });
+        //}
 
         public void DeleteDeltaStateLessThanRunId(int dataSetId, string deltaStateCode, long runId) {
             string sql = @" DELETE FROM dlta_cache_entry 
