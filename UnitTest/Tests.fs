@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//    DeltaTracker.CLR
+//    DeltaSnapshot.CLR
 //    Copyright(C) 2021 Clay Lipscomb
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,21 @@ module Tests
 
 open System
 open Xunit
+open DeltaSnapshot
 
+#if DEBUG
 [<Fact>]
-let ``My test`` () =
-    Assert.True(true)
+let ``DeltaStateType`` () =
+    Assert.Equal(DeltaStateType.CUR, @"CUR" |> deltaStateFromStr |> Option.get)
+    Assert.Equal(DeltaStateType.ADD, @"ADD" |> deltaStateFromStr |> Option.get)
+    Assert.Equal(DeltaStateType.UPD, @"UPD" |> deltaStateFromStr |> Option.get)
+    Assert.Equal(DeltaStateType.DEL, @"DEL" |> deltaStateFromStr |> Option.get)
+
+    //Assert.Equal(DeltaStateType.CUR.ToString(), @"CUR")
+    //Assert.Equal(DeltaStateType.ADD.ToString(), @"ADD")
+    //Assert.Equal(DeltaStateType.UPD.ToString(), @"UPD")
+    //Assert.Equal(DeltaStateType.DEL.ToString(), @"DEL")
+
+    //Assert.True(         Some DeltaStateType.ADD = DeltaState.fromStr (DeltaStateType.CUR.ToString()))
+#endif
+

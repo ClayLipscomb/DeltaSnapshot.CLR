@@ -16,26 +16,13 @@
 //    along with this program. If not, see<http://www.gnu.org/licenses/>.
 //------------------------------------------------------------------------------
 
-using System;
-using DeltaSnapshot;
+namespace DeltaSnapshot
 
-namespace TesterCs {
-    public class Run {
-        public Run(int dataSetId, RunMode runMode) {
-                DataSetId = dataSetId;
-                RunMode = runMode.ToString();
-                StatusCode = @"RUNNING";
-                StartDate = DateTimeOffset.Now;
-        }
-
-        public long? RunId { get; set; }
-        public int DataSetId { get; set; }
-        public string RunMode { get; set; }
-        public string StatusCode { get; set; }
-        public string StatusMessage { get; set; }
-        public int DataSetCount { get; set; }
-        public int DeltaCount { get; set; }
-        public DateTimeOffset StartDate { get; set; }
-        public DateTimeOffset? EndDate { get; set; }
-    }
-}
+#if DEBUG
+[<AutoOpen>]
+module public ApiTest =
+    // public proxies for unit tests
+    let deltaStateFromStr = DeltaState.fromStr
+    //let dataSetIdCreate = DataSetId.create
+    //let deltaSnapshotCoreProcessDataSetEntity = DeltaSnapshotCore.processDataSetEntity
+#endif

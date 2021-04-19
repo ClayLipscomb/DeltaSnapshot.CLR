@@ -1,5 +1,5 @@
-﻿//------------------------------------------------------------------------------
-//    DeltaSnapshot.CLR
+//------------------------------------------------------------------------------
+//    DeltaTracker.CLR
 //    Copyright(C) 2021 Clay Lipscomb
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -16,16 +16,21 @@
 //    along with this program. If not, see<http://www.gnu.org/licenses/>.
 //------------------------------------------------------------------------------
 
-using System;
-using System.Text;
-using DeltaSnapshot;
+module UnitTest
 
-namespace TesterCs {
-    public class Entity : IDataSetEntity {
-        public string Identifier { get; set; }
-        public long? LongValue { get; set; }
-        public string StringValue { get; set; }
-        public DateTimeOffset? DateTimeOffsetValue { get; set; }
-        public bool? BoolValue { get; set; }
-    }
-}
+open System
+open System.Diagnostics
+open Xunit
+open DeltaSnapshot
+
+[<Fact>]
+let ``DeltaStateType`` () =
+    //Assert.Equal(DeltaStateType.CUR, @"CUR" |> DeltaState.fromStr |> Option.get)
+    //Assert.Equal(DeltaStateType.ADD, @"ADD" |> DeltaState.fromStr |> Option.get)
+    //Assert.Equal(DeltaStateType.UPD, @"UPD" |> DeltaState.fromStr |> Option.get)
+    //Assert.Equal(DeltaStateType.DEL, @"DEL" |> DeltaState.fromStr |> Option.get)
+
+    //Debug.Assert(DeltaStateType.CUR = (@"CUR" |> DeltaState.fromStr |> Option.get))
+
+    Assert.True(true)
+

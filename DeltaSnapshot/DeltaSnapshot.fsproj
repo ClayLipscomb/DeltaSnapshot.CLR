@@ -12,6 +12,7 @@
     <Compile Include="DomainTypes.fs" />
     <Compile Include="DomainLogic.fs" />
     <Compile Include="Api.fs" />
+    <Compile Include="ApiTest.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,5 @@
 ﻿//------------------------------------------------------------------------------
-//    DeltaTracker.CLR
+//    DeltaSnapshot.CLR
 //    Copyright(C) 2021 Clay Lipscomb
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -56,7 +56,7 @@ namespace TesterCs.Database {
         public void RollbackTransaction() { unitOfWork.Rollback(); }
 
         public IEnumerable<ICacheEntryType<T>> GetByRunIdExcludingDeltaState(int dataSetId, long runId, string deltaStateCodeExclude) {
-            Console.WriteLine("called CacheEntryRepository.GetByRunIdExcludingDeltaState");
+            Console.WriteLine($"called CacheEntryRepository.GetByRunIdExcludingDeltaState {deltaStateCodeExclude}");
             string query = baseSelectFromSql + @" WHERE ce.data_set_id = :dataSetId AND ce.run_id = :runId AND ce.entity_delta_code != :deltaStateCodeExclude ";
             return unitOfWork.Connection.Query<CacheEntry<T>>(query, new { dataSetId, runId, deltaStateCodeExclude });
         }
@@ -128,6 +128,14 @@ namespace TesterCs.Database {
                 cacheEntry.EntityDataPrevious,
                 cacheEntry.CacheEntryId
             });
+        }
+
+        public void DeleteDeltaStateLessThanRunId(int dataSetId, string deltaStateCode, long runId) {
+            string sql = @" DELETE FROM dlta_cache_entry 
+                            WHERE       data_set_id = :dataSetId 
+                                AND     entity_delta_code = :deltaStateCode
+                                AND     run_id < :runId ";
+            unitOfWork.Connection.Execute(sql, new { dataSetId, deltaStateCode, runId });
         }
     }
 }

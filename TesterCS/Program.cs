@@ -1,5 +1,5 @@
 ﻿//------------------------------------------------------------------------------
-//    DeltaTracker.CLR
+//    DeltaSnapshot.CLR
 //    Copyright(C) 2021 Clay Lipscomb
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -25,14 +25,14 @@ using TesterCs.Database;
 
 namespace TesterCs {
     public static class Util {
-        public static IEnumerable<Entity> PullSourceData(Int32 dataSetId) {
-            Console.WriteLine("called Util.PullSourceData");
+        public static IEnumerable<Entity> PullDataSet(Int32 dataSetId) {
+            Console.WriteLine("called Util.PullDataSet");
             var sourceData = new List<Entity>() {
-                    new Entity() { Identifier = "MIN_DATETIME", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = DateTimeOffset.MinValue, BoolValue = false },
+                    new Entity() { Identifier = "MIN_DATE", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = DateTimeOffset.MinValue, BoolValue = false },
                 //,   new Entity() { Identifier = "2", LongValue = Int64.MaxValue, StringValue = "abcdefghi", DateTimeOffsetValue = DateTimeOffset.MaxValue, BoolValue = true }
                 //,   new Entity() { Identifier = "3" } // all nulls/defaults
-                   new Entity() { Identifier = "CURRENT_MILLI", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
-                ,   new Entity() { Identifier = "CURRENT_HOUR", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, 0, 0, TimeSpan.Zero), BoolValue = true }
+                   new Entity() { Identifier = "CUR_MILL", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
+                //,   new Entity() { Identifier = "CUR_HOUR", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, 0, 0, TimeSpan.Zero), BoolValue = true }
             };
             //return sourceData;
             foreach (var e in sourceData) yield return e;
@@ -65,12 +65,14 @@ namespace TesterCs {
             try {
                 using var uow = new UnitOfWork(DatabaseUtil.GetConnection());
                 using var repoCache = new CacheEntryRepository<Entity>(uow);
-                var result = Api.GetDeltas(dataSetId, runId, Util.PullSourceData, Util.IsEqual,
+                var result = Api.GetDeltas(dataSetId, runId, Util.PullDataSet, EmptyDataSetGetDeltasStrategy.RunSuccessWithBypass, Util.IsEqual,
                     new CacheEntryOperation<Entity>(repoCache.BeginTransaction, repoCache.CommitTransaction, repoCache.RollbackTransaction,
-                        repoCache.Insert, repoCache.Update, repoCache.GetLatestById, repoCache.GetRunIdMax, repoCache.GetByRunIdExcludingDeltaState));
+                        repoCache.Insert, repoCache.DeleteDeltaStateLessThanRunId, repoCache.GetLatestById, repoCache.GetRunIdMax, repoCache.GetByRunIdExcludingDeltaState));
 
                 var messages = result.DeltaSnapshots.ToList();
-                Console.WriteLine($"Result: " + (result.IsSuccess ? "SUCCESS" : "FAILURE: " + result.ErrorMsgs.FirstOrDefault()));
+                Console.WriteLine($"Result: " + (result.IsSuccess ? "SUCCESS:" : "FAILURE: ") + result.ErrorMsgs.FirstOrDefault() 
+                    + $" RunId: {result.RunId} DataSetCount: {result.DataSetCount} DeltaCount: {result.DeltaCount}");
+
                 Util.CompleteRun(result.RunId, result.IsSuccess, result.IsSuccess ? null : result.ErrorMsgs.FirstOrDefault(), result.DataSetCount, result.DeltaCount);
             } catch (Exception ex) {
                 Console.WriteLine(ex.Message);
@@ -82,7 +84,7 @@ namespace TesterCs {
         static void Main(string[] args) {
             var testRec = new DeltaSnapshotMessage<Entity>("id", DeltaStateType.ADD, DateTimeOffset.Now, true, null, null);
             var testRec2 = new TestRecord<Entity>(null);
-            int i = 0;
+            //int i = 0;
 
             Util.RunGetDeltas();
             //ResultDeltaSnapshot<Entity> results = DTApi.GetReset(1, Util.TryRunBeginTransaction, Util.GetSourceData, Util.PurgeCache, Util.InsertCacheEntry);

@@ -1,5 +1,5 @@
 ﻿//------------------------------------------------------------------------------
-//    DeltaTracker.CLR
+//    DeltaSnapshot.CLR
 //    Copyright(C) 2021 Clay Lipscomb
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -114,18 +114,21 @@ type public FindCacheEntryResultType<'TEntity when 'TEntity :> IDataSetEntity an
 [<Struct;NoEquality;NoComparison>]
 type public FindCacheLatestRunIdResultType = 
     internal | NotFoundRunId | FoundRunId of RunIdType
+[<Struct;NoEquality;NoComparison>]
+type public EmptyDataSetGetDeltasStrategy = 
+    | DefaultProcessing | RunSuccessWithBypass | RunFailure 
 
 /// Record of run result
 [<NoEquality;NoComparison>]
 type public DeltaRunResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    { IsSuccess: bool; RunId: RunIdPrimitive; DeltaSnapshots: DeltaSnapshotMessage<'TEntity> seq; ErrorMsgs: string seq; DataSetCount: CountPrimitive; DeltaCount: CountPrimitive }
+    { IsSuccess: bool; RunId: RunIdPrimitive; ErrorMsgs: string seq; DeltaSnapshots: DeltaSnapshotMessage<'TEntity> seq; DataSetCount: CountPrimitive; DeltaCount: CountPrimitive }
 
 // Delegates 
 /// Returns whether two entities are equal by structure/value
 type public IsEqualDelegate<'TEntity when 'TEntity :> IDataSetEntity> = 
     delegate of 'TEntity * 'TEntity -> bool
 /// Retrieve entire source data set
-type public PullSourceDataDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+type public PullDataSetDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     delegate of DataSetIdPrimitive -> 'TEntity seq
 /// Begin a cache transaction
 type public BeginTransactionDelegate = 
@@ -139,9 +142,9 @@ type public RollbackTransactionDelegate =
 /// Insert row into cache
 type public InsertCacheEntryDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     delegate of ICacheEntryType<'TEntity> -> unit
-/// Update existing cache row 
-type public UpdateCacheEntryDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    delegate of ICacheEntryType<'TEntity> -> unit
+/// Delete all cache entry with delta state prior to a specific run id
+type public DeleteCacheEntryDeltaStatePriorToRunIdDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    delegate of DataSetIdPrimitive * DeltaStatePrimitive * RunIdPrimitive -> unit
 /// Find most recent cache entry row by data set id and enity identifier
 type public FindLatestCacheEntryDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     delegate of DataSetIdPrimitive * EntityIdentifierType -> FindCacheEntryResultType<'TEntity>
@@ -149,7 +152,7 @@ type public FindLatestCacheEntryDelegate<'TEntity when 'TEntity :> IDataSetEntit
 type public GetCacheEntryByRunIdExcludeDeltaStateDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
     delegate of DataSetIdPrimitive * RunIdPrimitive * DeltaStatePrimitive -> ICacheEntryType<'TEntity> seq
 /// Find most recent cache row run id by data set id
-type public FindCacheLatestRunIdDelegate =
+type public FindCacheEntryLatestRunIdDelegate =
     delegate of DataSetIdPrimitive -> FindCacheLatestRunIdResultType
 
 /// Record of all necessary cache operations
@@ -159,7 +162,7 @@ type public CacheEntryOperation<'TEntity when 'TEntity :> IDataSetEntity and 'TE
         CommitTransaction: CommitTransactionDelegate;
         RollbackTransaction: RollbackTransactionDelegate;
         Insert: InsertCacheEntryDelegate<'TEntity>; 
-        Update: UpdateCacheEntryDelegate<'TEntity>; 
+        DeleteDeltaStatePriorToRunId: DeleteCacheEntryDeltaStatePriorToRunIdDelegate<'TEntity>; 
         FindLatest: FindLatestCacheEntryDelegate<'TEntity>; 
-        GetRunIdLatest: FindCacheLatestRunIdDelegate;
+        GetRunIdLatest: FindCacheEntryLatestRunIdDelegate;
         GetByRunIdExcludeDeltaState: GetCacheEntryByRunIdExcludeDeltaStateDelegate<'TEntity>; }

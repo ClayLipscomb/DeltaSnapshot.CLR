@@ -1,5 +1,5 @@
 ﻿//------------------------------------------------------------------------------
-//    DeltaTracker.CLR
+//    DeltaSnapshot.CLR
 //    Copyright(C) 2021 Clay Lipscomb
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -19,11 +19,15 @@
 namespace DeltaSnapshot
 
 open System 
-//open DeltaSnapshot
 
-//[<AutoOpen>]
-//module RunBeginTransaction = 
-//    let bind f x = match x with | Success runId -> Ok runId | Failure str -> Error str
+[<AutoOpen>]
+module internal Debug =
+#if DEBUG    
+    let printfnDebug = printfn  
+    //let printfnDebug2 (format:Printf.TextWriterFormat<'a>) :'a = 'a
+#else
+    let printfnDebug = printfn  
+#endif
 
 module internal RunId =
     let create = RunIdType 
@@ -34,18 +38,15 @@ module internal DataSetId =
 module internal DeltaState =
     let private unionCache = Union.getUnionCases<DeltaStateType> |> Seq.cache 
     let fromStr delaStateCandidateStr = Union.createUnionCase<DeltaStateType> unionCache delaStateCandidateStr
-module internal DeltaSnapshotMessage = // message
+module internal DeltaSnapshotMessage = 
     let ofCacheEntry isFull (cacheEntry: ICacheEntryType<'TEntity>) = 
         match (isFull, DeltaState.fromStr cacheEntry.EntityDeltaCode) with
         | (false, Some CUR) | (false, None) | (true, None) -> 
-            None    // do not return snapshot CUR if not null
+            None    // do not return snapshot CUR if not full
         | (false, Some ADD) | (false,  Some DEL) | (false, Some UPD)
         | (true, Some ADD) | (true,  Some DEL) | (true, Some UPD) | (true, Some CUR) ->
-            { Id = cacheEntry.EntityIdentifier; Delta = cacheEntry.EntityDeltaCode |> DeltaState.fromStr |> Option.defaultValue CUR;
-                IsFull = isFull; Date = DateTimeOffset.Now; Cur = cacheEntry.EntityDataCurrent; Prv = cacheEntry.EntityDataPrevious } |> Some
-            //new DeltaSnapshotType<'TEntity>(cacheEntry.EntityIdentifier, 
-            //    cacheEntry.EntityDeltaCode |> DeltaState.fromStr |> Option.defaultValue CUR, 
-            //    isFull, cacheEntry.EntityDataCurrent, cacheEntry.EntityDataPrevious) |> Some
+            {   Id = cacheEntry.EntityIdentifier; Delta = cacheEntry.EntityDeltaCode |> DeltaState.fromStr |> Option.defaultValue CUR;
+                IsFull = isFull; Date = cacheEntry.EntityDeltaDate; Cur = cacheEntry.EntityDataCurrent; Prv = cacheEntry.EntityDataPrevious } |> Some
             
 module internal CacheEntry =
     type CurrentPreviousType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = { Current: 'TEntity; Previous: 'TEntity }
@@ -56,37 +57,27 @@ module internal CacheEntry =
     let createUpd (dataSetId, runId, {Current=entCur; Previous=entPrv}) = 
         create (dataSetId, runId, entCur.Identifier, UPD, entCur, entPrv) :> ICacheEntryType<'TEntity>
     let createDel<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> (dataSetId, runId, entity: 'TEntity) = 
+        //printfnDebug("CacheEntry.createDel")
         create (dataSetId, runId, entity.Identifier, DEL, null, entity) :> ICacheEntryType<'TEntity>
     let createCur<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> (dataSetId, runId, entity: 'TEntity) = 
         create (dataSetId, runId, entity.Identifier, CUR, entity, null) :> ICacheEntryType<'TEntity>
-    let converToDel<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> (runId, cacheEntry: ICacheEntryType<'TEntity>) = 
-        let cacheEntryNew = createDel<'TEntity> (DataSetId.create cacheEntry.DataSetId, runId, cacheEntry.EntityDataCurrent)
-        cacheEntryNew.CacheEntryId <- cacheEntry.CacheEntryId // preserve PK in order to update
-        cacheEntryNew 
-    let migrateRun<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> (runId, cacheEntry: ICacheEntryType<'TEntity>) = 
-        cacheEntry.RunId <- RunId.value runId
-        cacheEntry.EntityDeltaDate <- DateTimeOffset.Now
-        cacheEntry
 
 [<AutoOpen>]
-module internal DeltaTrackerIO = 
-    let execPullSourceData (pull: PullSourceDataDelegate<'TEntity>, dataSetId) = pull.Invoke(DataSetId.value dataSetId)
-
-    let execBeginTransaction (beginTransactionDelegte:BeginTransactionDelegate) = beginTransactionDelegte.Invoke
-
+module internal DeltaSnapshotIO = 
+    let execPullDataSet (pullDataSet: PullDataSetDelegate<'TEntity>, dataSetId) = 
+        pullDataSet.Invoke(DataSetId.value dataSetId)
+    let execBeginTransaction (beginTransactionDelegte:BeginTransactionDelegate) = 
+        beginTransactionDelegte.Invoke
     let execCommitAndReturn (commitTransactionDelegate: CommitTransactionDelegate) (result:DeltaRunResultType<'TEntity>) =
         commitTransactionDelegate.Invoke |> ignore
         result
-
     let execRollbackAndReturn (rollbackTransactionDelegate: RollbackTransactionDelegate) (result:DeltaRunResultType<'TEntity>) =
         rollbackTransactionDelegate.Invoke |> ignore
         result
-
-    let execGetLatestRunIdCache (findCacheLatestRunId: FindCacheLatestRunIdDelegate, dataSetId) =
+    let execGetLatestRunIdCache (findCacheLatestRunId: FindCacheEntryLatestRunIdDelegate, dataSetId) =
         match findCacheLatestRunId.Invoke(DataSetId.value dataSetId) with
-        | NotFoundRunId -> printfn "runIdPrev not found"; None
-        | FoundRunId runId -> printfn "runIdPrev %i" (RunId.value runId); Some runId
-
+        | NotFoundRunId -> printfnDebug "runIdPrev not found"; None
+        | FoundRunId runId -> printfnDebug "runIdPrev %i" (RunId.value runId); Some runId
     let execGetPreviousNonDeletesCacheAsList (getByRunIdExcludeDeltaState: GetCacheEntryByRunIdExcludeDeltaStateDelegate<'TEntity>, dataSetRun) = 
         match dataSetRun.RunIdPrev with
         | None          -> Seq.empty
@@ -94,182 +85,118 @@ module internal DeltaTrackerIO =
         |> List.ofSeq
 
     // ------------------
-    let findLatestCacheEntry cacheEntryOperation dataSetId entityIdentifier = 
+    let execFindLatestCacheEntry cacheEntryOperation dataSetId entityIdentifier = 
         match cacheEntryOperation.FindLatest.Invoke (DataSetId.value dataSetId, entityIdentifier) with
         | NotFoundCacheEntry -> None
         | FoundCacheEntry cacheEntry -> Some cacheEntry
-
     let execInsertCache cacheEntryOperation cacheEntry =
         cacheEntryOperation.Insert.Invoke(cacheEntry)
-
-    let execUpdateCache cacheEntryOperation cacheEntry =
-        cacheEntryOperation.Update.Invoke(cacheEntry)
+    let asyncExecDeleteCurrentsPriorCache cacheEntryOperation dataSetId runIdOption =
+        async {
+            match runIdOption with
+            | None -> ()
+            | Some runId -> cacheEntryOperation.DeleteDeltaStatePriorToRunId.Invoke(DataSetId.value dataSetId, DeltaStateType.CUR.ToString(), RunId.value runId)
+        }
 
 [<AutoOpen>]
-module internal DeltaTrackerCore = 
-    let private processEntityAddDeltaInsert dataSetId entity runId cacheEntryOperation = 
-        let cacheEntry = CacheEntry.createAdd (dataSetId, runId, entity)
-        execInsertCache cacheEntryOperation cacheEntry
-        cacheEntry
+module internal DeltaSnapshotCore = 
+    type DataSetProcessResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+        { DataSetCount: CountPrimitive; DataSetEntityIds: EntityIdentifierType seq; DeltaSnapshotMessages: DeltaSnapshotMessage<'TEntity> seq }
 
-    // 1. tryInitRun 2. getSourceData 3. determine DSS list with cache insert, update, find (parallel?) 4. return DSS list (Addendum: track counts)
-    let processEntity (dataSetId, runId, entity: 'TEntity, isEqual: IsEqualDelegate<'TEntity>, cacheEntryOperation, isFull) =
-        let printId = $"processEntity {entity.Identifier} {RunId.value runId}"
-        match findLatestCacheEntry cacheEntryOperation dataSetId entity.Identifier with
-        | None ->       // fresh add
-            printfn     $"{printId} NotFound             ->   ADD insert"
-            (entity.Identifier, 
-                processEntityAddDeltaInsert dataSetId entity runId cacheEntryOperation 
-                |> DeltaSnapshotMessage.ofCacheEntry isFull)
+    let processDataSetEntity (dataSetId, runId, entity: 'TEntity, isEqual: IsEqualDelegate<'TEntity>, insertCache, cacheEntryFoundOption: ICacheEntryType<'TEntity> option, isFull) =
+        let printId = $"processDataSetEntity    {entity.Identifier} {RunId.value runId}"
+        let cacheEntryNew = 
+            match cacheEntryFoundOption with
+            | None ->       // fresh add
+                printfnDebug     $"{printId} NotFound                ->  ADD insert"
+                CacheEntry.createAdd (dataSetId, runId, entity)                
+            | Some cacheEntryFound -> 
+                match isEqual.Invoke (cacheEntryFound.EntityDataCurrent, entity), DeltaState.fromStr cacheEntryFound.EntityDeltaCode with
+                | false, None // treat invalid delta code as non-DEL
+                | false, Some CUR | false, Some UPD | false, Some ADD -> // update
+                    printfnDebug $"{printId} Found <>                ->  UPD insert"
+                    CacheEntry.createUpd (dataSetId, runId, {Current = entity; Previous = cacheEntryFound.EntityDataCurrent})                    
+                | true, Some DEL | false, Some DEL->  // prior delete has been added back
+                    printfnDebug $"{printId} Found (DEL)             ->reADD insert"
+                    CacheEntry.createAdd (dataSetId, runId, entity)                    
+                | true, None // treat invalid delta code as non-DEL
+                | true, Some UPD | true, Some ADD | true, Some CUR -> // no change, previous ADD, UPD or CUR
+                    printfnDebug $"{printId} Found == (UPD/ADD/CUR)  ->  CUR insert"                
+                    CacheEntry.createCur (dataSetId, runId, entity) // insert CUR into cache
+        insertCache cacheEntryNew
+        (entity.Identifier, cacheEntryNew |> DeltaSnapshotMessage.ofCacheEntry isFull)
 
-        | Some cacheEntryFound -> 
-            match isEqual.Invoke (cacheEntryFound.EntityDataCurrent, entity), DeltaState.fromStr cacheEntryFound.EntityDeltaCode with
-            | false, None // treat invalid delta code as non-DEL
-            | false, Some CUR | false, Some UPD | false, Some ADD -> // update
-                printfn $"{printId} Found <>             ->   UPD insert"
-                let cacheEntryNew = CacheEntry.createUpd (dataSetId, runId, {Current = entity; Previous = cacheEntryFound.EntityDataCurrent})
-                execInsertCache cacheEntryOperation cacheEntryNew
-                (entity.Identifier, 
-                    cacheEntryNew 
-                    |> DeltaSnapshotMessage.ofCacheEntry isFull)
+    let processDataSet (dataSetRun: DataSetRunType, pullDataSet, isEqual, insertCache, findLatestCache, isFull) =
+        let nonDeleteDeltaSnapshotsGross = 
+            pullDataSet () 
+            |> Seq.map (fun entity -> processDataSetEntity(dataSetRun.DataSetId, dataSetRun.RunIdCurr, entity, isEqual, insertCache, (findLatestCache entity.Identifier), isFull) )
+            |> List.ofSeq
+        {   DataSetCount = nonDeleteDeltaSnapshotsGross.Length;
+            DataSetEntityIds = nonDeleteDeltaSnapshotsGross |> Seq.map (fun (id, _) -> id);
+            DeltaSnapshotMessages = nonDeleteDeltaSnapshotsGross |> Seq.choose (fun (_, entityOpt) -> entityOpt) } // filter out None (occurs for isFull only) and descontruct Some
 
-            | true, Some DEL | false, Some DEL->  // prior delete has been added back
-                printfn $"{printId} Found DEL            -> reADD insert"
-                (entity.Identifier, 
-                    processEntityAddDeltaInsert dataSetId entity runId cacheEntryOperation 
-                    |> DeltaSnapshotMessage.ofCacheEntry isFull)
-
-            | true, None // treat invalid delta code as non-DEL
-            | true, Some UPD | true, Some ADD -> // no change, previous ADD or UPD
-                printfn $"{printId} Found == (UPD/ADD)   ->   CUR insert"                
-                let cacheEntryNew = CacheEntry.createCur (dataSetId, runId, entity) // insert CUR into cache
-                execInsertCache cacheEntryOperation cacheEntryNew
-                (entity.Identifier, 
-                    cacheEntryNew 
-                    |> DeltaSnapshotMessage.ofCacheEntry isFull) //if isFull then Some dss else None
-
-            | true, Some CUR -> // no change, previous CUR
-                printfn $"{printId} Found == (CUR)       ->   CUR update"
-                let cacheEntryProgressed = CacheEntry.migrateRun (runId, cacheEntryFound)
-                execUpdateCache cacheEntryOperation cacheEntryProgressed
-                (entity.Identifier, 
-                    cacheEntryProgressed
-                    |> DeltaSnapshotMessage.ofCacheEntry isFull) //if isFull then Some dss else None
-
-    let private processCacheEntryDelete (dataSetRun, (cacheEntryNonDelete: ICacheEntryType<'TEntity>), cacheEntryOperation, isFull) =
+    let private processCacheEntryDelete (dataSetRun, (cacheEntryNonDelete: ICacheEntryType<'TEntity>), insertCache, isFull) =
+        let printId = $"processCacheEntryDelete {cacheEntryNonDelete.EntityDataCurrent.Identifier} {RunId.value dataSetRun.RunIdCurr}"
         match DeltaState.fromStr cacheEntryNonDelete.EntityDeltaCode with 
-        | None                          // just treat invalid delta as CUR
-        | Some DeltaStateType.CUR       // convert existing CUR to DEL
-        | Some DeltaStateType.DEL ->    // DEL should not be possible but treat like CUR
-            printfn $"processCacheEntryDelete {cacheEntryNonDelete.EntityDataCurrent.Identifier} {RunId.value dataSetRun.RunIdCurr}            ->   DEL update"
-            let cacheEntryDelete = CacheEntry.converToDel (dataSetRun.RunIdCurr, cacheEntryNonDelete)
-            execUpdateCache cacheEntryOperation cacheEntryDelete
-            cacheEntryDelete |> DeltaSnapshotMessage.ofCacheEntry isFull
+        | None (* treat invalid as CUR *) | Some DeltaStateType.CUR (* convert CUR to DEL *) | Some DeltaStateType.DEL (* DEL not possible, treat like CUR *) -> 
+            printfnDebug $"{printId} (CUR)                   ->  DEL insert"
         | Some DeltaStateType.UPD | Some DeltaStateType.ADD ->
-            printfn $"processCacheEntryDelete {cacheEntryNonDelete.EntityDataCurrent.Identifier} {RunId.value dataSetRun.RunIdCurr}            ->   DEL insert"
-            let cacheEntryDelete = CacheEntry.createDel (dataSetRun.DataSetId, dataSetRun.RunIdCurr, cacheEntryNonDelete.EntityDataCurrent)
-            execInsertCache cacheEntryOperation cacheEntryDelete
-            cacheEntryDelete |> DeltaSnapshotMessage.ofCacheEntry isFull
+            printfnDebug $"{printId} (UPD/ADD)               ->  DEL insert"
 
-    //let private buildSnapshotsCore<'TEntity when 'TEntity :> IEntityTrackable and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null>
-    //    dataSetRun (nonDeleteDeltaSnapshots: DeltaSnapshotType<'TEntity> list) cacheEntryOperation isFull =
-    //    printfn "nonDeleteDeltaSnapshots count: %i" nonDeleteDeltaSnapshots.Length
-    //    let cacheNonDeletes = execGetPreviousNonDeletesCacheAsList (cacheEntryOperation.GetByRunIdExcludeDeltaState, dataSetRun)
-
-    //    printfn "cacheNonDeletes count: %i" cacheNonDeletes.Length
-    //    {   IsSuccess = true; 
-    //        RunId = RunId.value dataSetRun.RunIdCurr; 
-    //        DeltaSnapshots = 
-    //            cacheNonDeletes
-    //            |> Seq.filter (fun cacheEntryNonDelete -> nonDeleteDeltaSnapshots |> (Seq.exists (fun x -> x.Id = cacheEntryNonDelete.EntityIdentifier)) |> not) 
-    //            |> Seq.map (fun cacheEntryNonDelete -> processCacheEntryDelete(dataSetRun, cacheEntryNonDelete, cacheEntryOperation, isFull))
-    //            |> Seq.append <| nonDeleteDeltaSnapshots
-    //            |> List.ofSeq; 
-    //        ErrorMsgs = Seq.empty; 
-    //        DataSetCount = 0; 
-    //        DeltaCount = 0 }
-
-    let private processNonDeletes (dataSetRun: DataSetRunType) pullSourceData (isEqual:IsEqualDelegate<'TEntity>) cacheEntryOperation isFull =
-        pullSourceData()
-        // TO DO: if no rows in data set, then bypass remaining steps
-        |> Seq.map (fun entity -> processEntity(dataSetRun.DataSetId, dataSetRun.RunIdCurr, entity, isEqual, cacheEntryOperation, isFull) )
-        //|> Seq.filter (fun (_, entityOpt) -> Option.isSome entityOpt)    // filters out Nones (occurs for isFull only)
-        //|> Seq.map (fun (id, entityOpt) -> (id, entityOpt |> Option.get))       // deconstruct Some
-
-    //let private buildSnapshotsOld<'TEntity when 'TEntity :> IEntityTrackable and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-    //        (isFull:bool) (dataSetId: DataSetIdType) (runId: RunIdType) 
-    //        (pullSourceDataDelegate: PullSourceDataDelegate<'TEntity>) (isEqual:IsEqualDelegate<'TEntity>) (cacheEntryOperation: CacheEntryOperation<'TEntity>) = 
-    //    printfn "buildSnapshots %s" (if isFull then @"full" else @"deltas")
-
-    //    // prepare IO calls
-    //    let beginTransaction = execBeginTransaction cacheEntryOperation.BeginTransaction
-    //    let commitAndReturn = execCommitAndReturn cacheEntryOperation.CommitTransaction
-    //    let rollbackAndReturn = execRollbackAndReturn cacheEntryOperation.RollbackTransaction
-    //    let pullSourceData = fun() -> execPullSourceData (pullSourceDataDelegate, dataSetId)
-    //    let getRunIdPrevious = fun() -> execGetLatestRunIdCache (cacheEntryOperation.GetRunIdLatest, dataSetId)
-    //    let insertCache = fun() -> execInsertCache cacheEntryOperation
-    //    let updateCache = fun() -> execInsertCache cacheEntryOperation
-
-    //    try
-    //        beginTransaction |> ignore
-    //        // initializations
-    //        let dataSetRun = { DataSetId = dataSetId; RunIdCurr = runId; RunIdPrev = getRunIdPrevious () }
-    //        printfn "runIdCurr: %i" (RunId.value dataSetRun.RunIdCurr) 
-    //        let nonDeleteSnapshots = (processNonDeletes dataSetRun pullSourceData isEqual cacheEntryOperation isFull) |> List.ofSeq
-    //        printfn "AFTER processNonDeletes"
-    //        buildSnapshotsCore dataSetRun nonDeleteSnapshots cacheEntryOperation isFull
-    //        |> commitAndReturn 
-    //    with
-    //        | _ as ex -> 
-    //            { IsSuccess = false; RunId = RunId.value runId; DeltaSnapshots = Seq.empty; ErrorMsgs = [ex.Message]; DataSetCount = 0; DeltaCount = 0 }
-    //            |> rollbackAndReturn
+        let cacheEntryDelete = CacheEntry.createDel (dataSetRun.DataSetId, dataSetRun.RunIdCurr, cacheEntryNonDelete.EntityDataCurrent)
+        insertCache cacheEntryDelete
+        cacheEntryDelete |> DeltaSnapshotMessage.ofCacheEntry isFull
 
     let private buildSnapshots<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
             (isFull:bool) (dataSetId: DataSetIdType) (runId: RunIdType) 
-            (pullSourceDataDelegate: PullSourceDataDelegate<'TEntity>) (isEqual:IsEqualDelegate<'TEntity>) (cacheEntryOperation: CacheEntryOperation<'TEntity>) = 
-        printfn "buildSnapshots %s" (if isFull then @"full" else @"deltas")
+            (pullDataSetDelegate: PullDataSetDelegate<'TEntity>) (emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy) 
+            (isEqual:IsEqualDelegate<'TEntity>) (cacheEntryOperation: CacheEntryOperation<'TEntity>) = 
+        printfnDebug "buildSnapshots %s" (if isFull then @"full" else @"deltas")
 
         // prepare IO calls
         let beginTransaction = execBeginTransaction cacheEntryOperation.BeginTransaction
         let commitAndReturn = execCommitAndReturn cacheEntryOperation.CommitTransaction
         let rollbackAndReturn = execRollbackAndReturn cacheEntryOperation.RollbackTransaction
-        let pullSourceData = fun() -> execPullSourceData (pullSourceDataDelegate, dataSetId)
+        let pullDataSet = fun() -> execPullDataSet (pullDataSetDelegate, dataSetId)
         let getRunIdPrevious = fun() -> execGetLatestRunIdCache (cacheEntryOperation.GetRunIdLatest, dataSetId)
-        let insertCache = fun() -> execInsertCache cacheEntryOperation
-        let updateCache = fun() -> execInsertCache cacheEntryOperation
+        let findLatestCache = fun entityIdentifier -> execFindLatestCacheEntry cacheEntryOperation dataSetId entityIdentifier
+        let insertCache = fun cacheEntry -> execInsertCache cacheEntryOperation cacheEntry
+        let asyncDeleteCurrentsPriorTo = fun runIdOption -> asyncExecDeleteCurrentsPriorCache cacheEntryOperation dataSetId runIdOption
 
         try
             // initializations
             let dataSetRun = { DataSetId = dataSetId; RunIdCurr = runId; RunIdPrev = getRunIdPrevious () }
-            printfn "runIdCurr: %i" (RunId.value dataSetRun.RunIdCurr) 
-
-            // TO DO: optionally delete all CURs in previous run async
+            printfnDebug "runIdCurr: %i" (RunId.value dataSetRun.RunIdCurr) 
 
             beginTransaction |> ignore
-            let nonDeleteDeltaSnapshotsGross = (processNonDeletes dataSetRun pullSourceData isEqual cacheEntryOperation isFull) |> List.ofSeq
-            let nonDeleteDeltaSnapshotIds = nonDeleteDeltaSnapshotsGross |> Seq.map (fun (id, _) -> id)
-            let nonDeleteDeltaSnapshots = nonDeleteDeltaSnapshotsGross 
-                                            |> Seq.choose (fun (_, entityOpt) -> entityOpt) // filter out None (occurs for isFull only) and descontruct Some
-            printfn "AFTER processNonDeletes"
+            Async.RunSynchronously (asyncDeleteCurrentsPriorTo dataSetRun.RunIdPrev) // TO DO: make optional 
+            let processDataSetResult = processDataSet (dataSetRun, pullDataSet, isEqual, insertCache, findLatestCache, isFull)
+            printfnDebug "AFTER processDataSet"
 
-            let cacheNonDeletes = execGetPreviousNonDeletesCacheAsList (cacheEntryOperation.GetByRunIdExcludeDeltaState, dataSetRun)
-            printfn "cacheNonDeletes count: %i" cacheNonDeletes.Length
-            {   IsSuccess = true; 
-                RunId = RunId.value dataSetRun.RunIdCurr; 
-                DeltaSnapshots = 
-                    cacheNonDeletes
-                    |> Seq.filter (fun cacheEntryNonDelete -> nonDeleteDeltaSnapshotIds |> (Seq.exists (fun id -> id = cacheEntryNonDelete.EntityIdentifier)) |> not) 
-                    |> Seq.map (fun cacheEntryNonDelete -> processCacheEntryDelete(dataSetRun, cacheEntryNonDelete, cacheEntryOperation, isFull))
-                    |> Seq.choose id
-                    |> Seq.append <| nonDeleteDeltaSnapshots
+            match (isFull, emptyDataSetGetDeltasStrategy, processDataSetResult.DataSetCount = 0) with
+                | false, EmptyDataSetGetDeltasStrategy.RunFailure, true -> 
+                    failwith "Data set is empty." 
+                | false, EmptyDataSetGetDeltasStrategy.RunSuccessWithBypass, true ->
+                    {   IsSuccess = true; RunId = RunId.value runId; ErrorMsgs = ["Run bypassed due to empty data set."]; 
+                        DeltaSnapshots = Seq.empty; DataSetCount = 0; DeltaCount = 0 }
+                | _, _, _ ->
+                    let cacheNonDeletes = execGetPreviousNonDeletesCacheAsList (cacheEntryOperation.GetByRunIdExcludeDeltaState, dataSetRun)
+                    printfnDebug "cacheNonDeletes count: %i" cacheNonDeletes.Length
+                    let deltaSnapshots = 
+                        cacheNonDeletes
+                        |> Seq.filter (fun cacheEntryNonDelete -> processDataSetResult.DataSetEntityIds |> (Seq.exists (fun id -> id = cacheEntryNonDelete.EntityIdentifier)) |> not) 
+                        |> Seq.map (fun cacheEntryNonDelete -> processCacheEntryDelete(dataSetRun, cacheEntryNonDelete, insertCache, isFull))
+                        |> Seq.choose id
+                        |> Seq.append <| processDataSetResult.DeltaSnapshotMessages
                         |> List.ofSeq; 
-                ErrorMsgs = Seq.empty; 
-                DataSetCount = 0; 
-                DeltaCount = 0 }
-            |> commitAndReturn 
+ 
+                    {   IsSuccess = true; RunId = RunId.value dataSetRun.RunIdCurr; ErrorMsgs = ["Success."];
+                        DeltaSnapshots = deltaSnapshots; DataSetCount = processDataSetResult.DataSetCount; DeltaCount = deltaSnapshots.Length }
+                    |> commitAndReturn 
         with
             | _ as ex -> 
-                { IsSuccess = false; RunId = RunId.value runId; DeltaSnapshots = Seq.empty; ErrorMsgs = [ex.Message]; DataSetCount = 0; DeltaCount = 0 }
+                {   IsSuccess = false; RunId = RunId.value runId; ErrorMsgs = [ex.Message]; 
+                    DeltaSnapshots = Seq.empty; DataSetCount = 0; DeltaCount = 0 }
                 |> rollbackAndReturn
 
     let getDeltas dataSetId = buildSnapshots false dataSetId

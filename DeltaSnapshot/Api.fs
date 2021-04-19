@@ -1,5 +1,5 @@
 ﻿//------------------------------------------------------------------------------
-//    DeltaTracker.CLR
+//    DeltaSnapshot.CLR
 //    Copyright(C) 2021 Clay Lipscomb
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -18,6 +18,8 @@
 
 namespace DeltaSnapshot
 
+//open UnitTest
+
 [<AutoOpen>]
 module internal ApiUtil =
     //let nullArg name message = raise new System.ArgumentNullException(name, message)
@@ -31,17 +33,19 @@ module public Api =
     let GetDeltas<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
             ( dataSetId: DataSetIdPrimitive
             , runIdNew: RunIdPrimitive
-            , pullSourceData: PullSourceDataDelegate<'TEntity>
+            , pullDataSet: PullDataSetDelegate<'TEntity>
+            , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
             , isEqual: IsEqualDelegate<'TEntity>
             , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
-        getDeltas (DataSetIdType dataSetId) (RunId.create runIdNew) pullSourceData isEqual cacheEntryOperation
+        getDeltas (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
     let GetDeltasAndCurrents<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
             ( dataSetId: DataSetIdPrimitive
             , runIdNew: RunIdPrimitive
-            , pullSourceData: PullSourceDataDelegate<'TEntity>
+            , pullDataSet: PullDataSetDelegate<'TEntity>
+            , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
             , isEqual: IsEqualDelegate<'TEntity>
             , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
-        getDeltasAndCurrents (DataSetIdType dataSetId) (RunId.create runIdNew) pullSourceData isEqual cacheEntryOperation
+        getDeltasAndCurrents (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
 
     let CreateFindCacheEntryResultSuccess (cacheEntry: ICacheEntryType<'TEntity>) = cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
     let CreateFindCacheEntryResultFailure () = FindCacheEntryResultType.NotFoundCacheEntry
