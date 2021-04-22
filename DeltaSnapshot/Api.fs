@@ -30,25 +30,26 @@ module internal ApiUtil =
 
 [<AutoOpen>]
 module public Api =
-    let GetDeltas<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-            ( dataSetId: DataSetIdPrimitive
-            , runIdNew: RunIdPrimitive
-            , pullDataSet: PullDataSetDelegate<'TEntity>
-            , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
-            , isEqual: IsEqualDelegate<'TEntity>
-            , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
-        getDeltas (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
-    let GetDeltasAndCurrents<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-            ( dataSetId: DataSetIdPrimitive
-            , runIdNew: RunIdPrimitive
-            , pullDataSet: PullDataSetDelegate<'TEntity>
-            , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
-            , isEqual: IsEqualDelegate<'TEntity>
-            , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
-        getDeltasAndCurrents (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
+    module Consumer =
+        let GetDeltas<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+                ( dataSetId: DataSetIdPrimitive
+                , runIdNew: RunIdPrimitive
+                , pullDataSet: PullDataSetDelegate<'TEntity>
+                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
+                , isEqual: IsEqualDelegate<'TEntity>
+                , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
+            getDeltas (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
+        let GetDeltasAndCurrents<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+                ( dataSetId: DataSetIdPrimitive
+                , runIdNew: RunIdPrimitive
+                , pullDataSet: PullDataSetDelegate<'TEntity>
+                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
+                , isEqual: IsEqualDelegate<'TEntity>
+                , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
+            getDeltasAndCurrents (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
 
-    let CreateFindCacheEntryResultSuccess (cacheEntry: ICacheEntryType<'TEntity>) = cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
-    let CreateFindCacheEntryResultFailure () = FindCacheEntryResultType.NotFoundCacheEntry
-
-    let CreateFindCacheLatestRunIdResultSuccess (runId: RunIdPrimitive) = runId |> RunIdType |> FindCacheLatestRunIdResultType.FoundRunId
-    let CreateFindCacheLatestRunIdResultFailure () = FindCacheLatestRunIdResultType.NotFoundRunId
+        let CreateFindCacheEntryResultSuccess (cacheEntry: ICacheEntryType<'TEntity>) = cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
+        let CreateFindCacheEntryResultFailure () = FindCacheEntryResultType.NotFoundCacheEntry
+    
+        let CreateFindCacheLatestRunIdResultSuccess (runId: RunIdPrimitive) = runId |> RunIdType |> FindCacheLatestRunIdResultType.FoundRunId
+        let CreateFindCacheLatestRunIdResultFailure () = FindCacheLatestRunIdResultType.NotFoundRunId

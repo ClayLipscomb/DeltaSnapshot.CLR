@@ -65,7 +65,7 @@ namespace TesterCs.Database {
             string baseQuery = baseSelectFromSql + @" WHERE ce.data_set_id = :dataSetId AND ce.entity_identifier = :entityIdentifier ORDER BY ce.entity_delta_date DESC ";
             var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
             var queryResult = unitOfWork.Connection.Query<CacheEntry<T>>(query, new { dataSetId, entityIdentifier }).FirstOrDefault();
-            return queryResult == null ? Api.CreateFindCacheEntryResultFailure<T>() : Api.CreateFindCacheEntryResultSuccess<T>(queryResult);
+            return queryResult == null ? Api.Consumer.CreateFindCacheEntryResultFailure<T>() : Api.Consumer.CreateFindCacheEntryResultSuccess<T>(queryResult);
         }
 
         public FindCacheLatestRunIdResultType GetRunIdMax(Int32 dataSetId) {
@@ -73,7 +73,7 @@ namespace TesterCs.Database {
                             FROM    dlta_cache_entry
                             WHERE   data_set_id = :dataSetId ";
             var runId = unitOfWork.Connection.Query<long?>(query, new { dataSetId }).FirstOrDefault();
-            return runId.HasValue ? Api.CreateFindCacheLatestRunIdResultSuccess(runId.Value) : Api.CreateFindCacheLatestRunIdResultFailure();
+            return runId.HasValue ? Api.Consumer.CreateFindCacheLatestRunIdResultSuccess(runId.Value) : Api.Consumer.CreateFindCacheLatestRunIdResultFailure();
         }
 
         public void Insert(ICacheEntryType<T> cacheEntry) {

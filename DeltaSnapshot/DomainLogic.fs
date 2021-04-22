@@ -66,12 +66,12 @@ module internal CacheEntry =
 module internal DeltaSnapshotIO = 
     let execPullDataSet (pullDataSet: PullDataSetDelegate<'TEntity>, dataSetId) = 
         pullDataSet.Invoke(DataSetId.value dataSetId)
-    let execBeginTransaction (beginTransactionDelegte:BeginTransactionDelegate) = 
+    let execBeginTransaction (beginTransactionDelegte: BeginTransactionDelegate) = 
         beginTransactionDelegte.Invoke
-    let execCommitAndReturn (commitTransactionDelegate: CommitTransactionDelegate) (result:DeltaRunResultType<'TEntity>) =
+    let execCommitAndReturn (commitTransactionDelegate: CommitTransactionDelegate) (result: DeltaRunResultType<'TEntity>) =
         commitTransactionDelegate.Invoke |> ignore
         result
-    let execRollbackAndReturn (rollbackTransactionDelegate: RollbackTransactionDelegate) (result:DeltaRunResultType<'TEntity>) =
+    let execRollbackAndReturn (rollbackTransactionDelegate: RollbackTransactionDelegate) (result: DeltaRunResultType<'TEntity>) =
         rollbackTransactionDelegate.Invoke |> ignore
         result
     let execGetLatestRunIdCache (findCacheLatestRunId: FindCacheEntryLatestRunIdDelegate, dataSetId) =
@@ -129,13 +129,13 @@ module internal DeltaSnapshotCore =
     let processDataSet (dataSetRun: DataSetRunType, pullDataSet, isEqual, insertCache, findLatestCache, isFull) =
         let nonDeleteDeltaSnapshotsGross = 
             pullDataSet () 
-            |> Seq.map (fun entity -> processDataSetEntity(dataSetRun.DataSetId, dataSetRun.RunIdCurr, entity, isEqual, insertCache, (findLatestCache entity.Identifier), isFull) )
-            |> List.ofSeq
+            |> Array.ofSeq
+            |> Array.Parallel.map (fun entity -> processDataSetEntity(dataSetRun.DataSetId, dataSetRun.RunIdCurr, entity, isEqual, insertCache, (findLatestCache entity.Identifier), isFull) )
         {   DataSetCount = nonDeleteDeltaSnapshotsGross.Length;
             DataSetEntityIds = nonDeleteDeltaSnapshotsGross |> Seq.map (fun (id, _) -> id);
             DeltaSnapshotMessages = nonDeleteDeltaSnapshotsGross |> Seq.choose (fun (_, entityOpt) -> entityOpt) } // filter out None (occurs for isFull only) and descontruct Some
 
-    let private processCacheEntryDelete (dataSetRun, (cacheEntryNonDelete: ICacheEntryType<'TEntity>), insertCache, isFull) =
+    let processCacheEntryDelete (dataSetRun, (cacheEntryNonDelete: ICacheEntryType<'TEntity>), insertCache, isFull) =
         let printId = $"processCacheEntryDelete {cacheEntryNonDelete.EntityDataCurrent.Identifier} {RunId.value dataSetRun.RunIdCurr}"
         match DeltaState.fromStr cacheEntryNonDelete.EntityDeltaCode with 
         | None (* treat invalid as CUR *) | Some DeltaStateType.CUR (* convert CUR to DEL *) | Some DeltaStateType.DEL (* DEL not possible, treat like CUR *) -> 
@@ -148,9 +148,9 @@ module internal DeltaSnapshotCore =
         cacheEntryDelete |> DeltaSnapshotMessage.ofCacheEntry isFull
 
     let private buildSnapshots<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-            (isFull:bool) (dataSetId: DataSetIdType) (runId: RunIdType) 
+            (isFull: bool) (dataSetId: DataSetIdType) (runId: RunIdType) 
             (pullDataSetDelegate: PullDataSetDelegate<'TEntity>) (emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy) 
-            (isEqual:IsEqualDelegate<'TEntity>) (cacheEntryOperation: CacheEntryOperation<'TEntity>) = 
+            (isEqual: IsEqualDelegate<'TEntity>) (cacheEntryOperation: CacheEntryOperation<'TEntity>) = 
         printfnDebug "buildSnapshots %s" (if isFull then @"full" else @"deltas")
 
         // prepare IO calls
@@ -166,20 +166,20 @@ module internal DeltaSnapshotCore =
         try
             // initializations
             let dataSetRun = { DataSetId = dataSetId; RunIdCurr = runId; RunIdPrev = getRunIdPrevious () }
-            printfnDebug "runIdCurr: %i" (RunId.value dataSetRun.RunIdCurr) 
 
             beginTransaction |> ignore
             Async.RunSynchronously (asyncDeleteCurrentsPriorTo dataSetRun.RunIdPrev) // TO DO: make optional 
             let processDataSetResult = processDataSet (dataSetRun, pullDataSet, isEqual, insertCache, findLatestCache, isFull)
             printfnDebug "AFTER processDataSet"
 
-            match (isFull, emptyDataSetGetDeltasStrategy, processDataSetResult.DataSetCount = 0) with
-                | false, EmptyDataSetGetDeltasStrategy.RunFailure, true -> 
+            match (not isFull && processDataSetResult.DataSetCount = 0, emptyDataSetGetDeltasStrategy) with
+                | true, EmptyDataSetGetDeltasStrategy.RunFailure -> 
                     failwith "Data set is empty." 
-                | false, EmptyDataSetGetDeltasStrategy.RunSuccessWithBypass, true ->
+                | true, EmptyDataSetGetDeltasStrategy.RunSuccessWithBypass ->
                     {   IsSuccess = true; RunId = RunId.value runId; ErrorMsgs = ["Run bypassed due to empty data set."]; 
                         DeltaSnapshots = Seq.empty; DataSetCount = 0; DeltaCount = 0 }
-                | _, _, _ ->
+                | false, EmptyDataSetGetDeltasStrategy.RunFailure | false, EmptyDataSetGetDeltasStrategy.RunSuccessWithBypass
+                | false, EmptyDataSetGetDeltasStrategy.DefaultProcessing | true, EmptyDataSetGetDeltasStrategy.DefaultProcessing ->
                     let cacheNonDeletes = execGetPreviousNonDeletesCacheAsList (cacheEntryOperation.GetByRunIdExcludeDeltaState, dataSetRun)
                     printfnDebug "cacheNonDeletes count: %i" cacheNonDeletes.Length
                     let deltaSnapshots = 
@@ -192,7 +192,7 @@ module internal DeltaSnapshotCore =
  
                     {   IsSuccess = true; RunId = RunId.value dataSetRun.RunIdCurr; ErrorMsgs = ["Success."];
                         DeltaSnapshots = deltaSnapshots; DataSetCount = processDataSetResult.DataSetCount; DeltaCount = deltaSnapshots.Length }
-                    |> commitAndReturn 
+                    |> commitAndReturn
         with
             | _ as ex -> 
                 {   IsSuccess = false; RunId = RunId.value runId; ErrorMsgs = [ex.Message]; 
