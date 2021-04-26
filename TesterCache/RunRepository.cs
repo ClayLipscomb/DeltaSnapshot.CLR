@@ -22,7 +22,7 @@ using System.Collections.Generic;
 using Dapper;
 using System.Data;
 
-namespace TesterCs.Database {
+namespace TesterCache {
     public class RunRepository : IDisposable {
         protected IUnitOfWork unitOfWork;
         public void Dispose() { unitOfWork.Dispose(); }

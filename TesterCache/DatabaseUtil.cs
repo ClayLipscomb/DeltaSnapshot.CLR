@@ -22,18 +22,18 @@ using System.Data;
 using Dapper;
 using Oracle.ManagedDataAccess.Client;
 
-namespace TesterCs.Database {
+namespace TesterCache {
     /// <summary>
     /// Base repository used for NIS database
     /// </summary>
-    internal static class DatabaseUtil {
-        internal static IDbConnection GetConnection() {
+    public static class DatabaseUtil {
+        public static IDbConnection GetConnection() {
             var connection = new OracleConnection("data source=XE;user id=DLTA;password=dlta;enlist=false");
             connection.Open();
             return connection;
         }
 
-        internal static long GetNextVal(string sequenceName, IDbConnection conn) {
+        public static long GetNextVal(string sequenceName, IDbConnection conn) {
             return (long)conn.Query<long>($"SELECT {sequenceName}.NEXTVAL FROM DUAL").SingleOrDefault();
         }
     }

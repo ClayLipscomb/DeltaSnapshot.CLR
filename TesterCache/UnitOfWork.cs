@@ -19,9 +19,9 @@
 using System;
 using System.Data;
 
-namespace TesterCs.Database {
+namespace TesterCache {
     public class UnitOfWork : IUnitOfWork {
-        internal UnitOfWork(IDbConnection connection) {
+        public UnitOfWork(IDbConnection connection) {
             _id = Guid.NewGuid();
             _connection = connection;
         }

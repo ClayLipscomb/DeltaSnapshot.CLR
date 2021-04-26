@@ -24,7 +24,7 @@ using System.Data;
 using Newtonsoft.Json;
 using DeltaSnapshot;
 
-namespace TesterCs.Database {
+namespace TesterCache {
     public class CacheEntryRepository<T> : IDisposable where T : class, IDataSetEntity, new() {
         private class JsonTypeHandler : SqlMapper.ITypeHandler {
             public void SetValue(IDbDataParameter parameter, object value) { parameter.Value = JsonConvert.SerializeObject(value); }

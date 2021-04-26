@@ -17,24 +17,15 @@
 //------------------------------------------------------------------------------
 
 using System;
-using DeltaSnapshot;
+using System.Data;
 
-namespace TesterCs {
-    public class Entity : IDataSetEntity {
-        public string Identifier { get; set; }
-        public long? LongValue { get; set; }
-        public string StringValue { get; set; }
-        public DateTimeOffset? DateTimeOffsetValue { get; set; }
-        public bool? BoolValue { get; set; }
-        public static bool IsEqual(Entity dt1, Entity dt2) {
-            if (dt1 == null || dt2 == null) return false;
-            if (ReferenceEquals(dt1, dt2)) return true;
-
-            return (dt1.Identifier == dt2.Identifier
-                    && dt1.LongValue == dt2.LongValue
-                    && dt1.StringValue == dt2.StringValue
-                    && dt1.DateTimeOffsetValue == dt2.DateTimeOffsetValue
-                    && dt1.BoolValue == dt2.BoolValue);
-        }
+namespace TesterCache {
+    public interface IUnitOfWork : IDisposable {
+        Guid Id { get; }
+        IDbConnection Connection { get; }
+        IDbTransaction Transaction { get; }
+        void Begin();
+        void Commit();
+        void Rollback();
     }
 }

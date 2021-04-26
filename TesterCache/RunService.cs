@@ -17,24 +17,19 @@
 //------------------------------------------------------------------------------
 
 using System;
+using System.Data;
 using DeltaSnapshot;
 
-namespace TesterCs {
-    public class Entity : IDataSetEntity {
-        public string Identifier { get; set; }
-        public long? LongValue { get; set; }
-        public string StringValue { get; set; }
-        public DateTimeOffset? DateTimeOffsetValue { get; set; }
-        public bool? BoolValue { get; set; }
-        public static bool IsEqual(Entity dt1, Entity dt2) {
-            if (dt1 == null || dt2 == null) return false;
-            if (ReferenceEquals(dt1, dt2)) return true;
+namespace TesterCache {
+    public static class RunService {
+        public static long StartRun(Int32 subscriptionId, RunModeType runMode) {
+            using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
+            return repo.Insert(new Run(subscriptionId, runMode));
+        }
 
-            return (dt1.Identifier == dt2.Identifier
-                    && dt1.LongValue == dt2.LongValue
-                    && dt1.StringValue == dt2.StringValue
-                    && dt1.DateTimeOffsetValue == dt2.DateTimeOffsetValue
-                    && dt1.BoolValue == dt2.BoolValue);
+        public static void CompleteRun(Int64 runId, bool isSuccess, string statusMessage, int dataSetCount, int deltaCount) {
+            using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
+            repo.Update(runId, isSuccess ? "SUCCESS" : "FAILURE", statusMessage, dataSetCount, deltaCount);
         }
     }
 }

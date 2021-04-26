@@ -17,15 +17,25 @@
 //------------------------------------------------------------------------------
 
 using System;
-using System.Data;
+using DeltaSnapshot;
 
-namespace TesterCs.Database {
-    public interface IUnitOfWork : IDisposable {
-        Guid Id { get; }
-        IDbConnection Connection { get; }
-        IDbTransaction Transaction { get; }
-        void Begin();
-        void Commit();
-        void Rollback();
+namespace TesterCache {
+    public class Run {
+        public Run(int subscriptionDataSetId, RunModeType runMode) {
+                SubscriptionDataSetId = subscriptionDataSetId;
+                RunMode = runMode.ToString();
+                StatusCode = @"RUNNING";
+                StartDate = DateTimeOffset.Now;
+        }
+
+        public long? RunId { get; set; }
+        public int SubscriptionDataSetId { get; set; }
+        public string RunMode { get; set; }
+        public string StatusCode { get; set; }
+        public string StatusMessage { get; set; }
+        public int DataSetCount { get; set; }
+        public int DeltaCount { get; set; }
+        public DateTimeOffset StartDate { get; set; }
+        public DateTimeOffset? EndDate { get; set; }
     }
 }

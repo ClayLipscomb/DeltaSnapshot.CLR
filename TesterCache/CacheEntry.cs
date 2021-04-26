@@ -2,7 +2,7 @@
 using System.Text;
 using DeltaSnapshot;
 
-namespace TesterCs {
+namespace TesterCache {
     public class CacheEntry<T> : ICacheEntryType<T> where T : class, IDataSetEntity, new() {
         public int SubscriptionDataSetId { get; set; }
         public long RunId { get; set; }

@@ -17,11 +17,10 @@
 //------------------------------------------------------------------------------
 
 using System;
-using System.Data;
 using System.Collections.Generic;
 using System.Linq;
 using DeltaSnapshot;
-using TesterCs.Database;
+using TesterCache;
 
 namespace TesterCs {
     public static class Util {
@@ -37,43 +36,13 @@ namespace TesterCs {
             foreach (var e in sourceData) yield return e;
         }
 
-        public class Subscription : ISubscription {
-            internal Subscription(int subscriptionDataSetId, string subscriptionDataSetFilter) {
-                SubscriptionDataSetId = subscriptionDataSetId;
-                SubscriptionDataSetFilter = subscriptionDataSetFilter;
-            }
-            public int SubscriptionDataSetId { get; set; }
-            public string SubscriptionDataSetFilter { get; set; }
-        }
-
-        public static long StartRun(Int32 subscriptionId, RunModeType runMode) {
-            using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
-            return repo.Insert(new Run(subscriptionId, runMode));
-        }
-
-        public static void CompleteRun(Int64 runId, bool isSuccess, string statusMessage, int dataSetCount, int deltaCount) {
-            using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
-            repo.Update(runId, isSuccess ? "SUCCESS" : "FAILURE", statusMessage, dataSetCount, deltaCount);
-        }
-
-        public static bool IsEqual(Entity dt1, Entity dt2) {
-            if (dt1 == null || dt2 == null) return false;
-            if (ReferenceEquals(dt1, dt2)) return true;
-
-            return (dt1.Identifier == dt2.Identifier
-                    && dt1.LongValue == dt2.LongValue
-                    && dt1.StringValue == dt2.StringValue
-                    && dt1.DateTimeOffsetValue == dt2.DateTimeOffsetValue
-                    && dt1.BoolValue == dt2.BoolValue);
-        }
-
         public static void RunGetDeltas() {
             var subscription = new Subscription(88, String.Empty);
-            var runId = Util.StartRun(subscription.SubscriptionDataSetId, RunModeType.SET_DELTA);
+            var runId = RunService.StartRun(subscription.SubscriptionDataSetId, RunModeType.SET_DELTA);
             try {
                 using var uow = new UnitOfWork(DatabaseUtil.GetConnection());
                 using var repoCache = new CacheEntryRepository<Entity>(uow);
-                var result = Api.Subscriber.GetDeltas(subscription, runId, Util.PullPublisherDataSet, EmptyDataSetGetDeltasStrategyType.RunSuccessWithBypass, Util.IsEqual,
+                var result = Api.Subscriber.GetDeltas(subscription, runId, Util.PullPublisherDataSet, EmptyDataSetGetDeltasStrategyType.RunSuccessWithBypass, Entity.IsEqual,
                     new CacheEntryOperation<Entity>(repoCache.BeginTransaction, repoCache.CommitTransaction, repoCache.RollbackTransaction,
                         repoCache.Insert, repoCache.DeleteDeltaStateLessThanRunId, repoCache.GetLatestById, repoCache.GetRunIdMax, repoCache.GetByRunIdExcludingDeltaState));
 
@@ -81,10 +50,10 @@ namespace TesterCs {
                 Console.WriteLine((result.IsSuccess ? "SUCCESS" : "FAILURE") + " " + result.ErrorMsgs.FirstOrDefault() 
                     + $" RunId:{result.RunId} DataSetCount:{result.DataSetCount} DeltaCount:{result.DeltaCount}");
 
-                Util.CompleteRun(result.RunId, result.IsSuccess, result.IsSuccess ? null : result.ErrorMsgs.FirstOrDefault(), result.DataSetCount, result.DeltaCount);
+                RunService.CompleteRun(result.RunId, result.IsSuccess, result.IsSuccess ? null : result.ErrorMsgs.FirstOrDefault(), result.DataSetCount, result.DeltaCount);
             } catch (Exception ex) {
                 Console.WriteLine(ex.Message);
-                Util.CompleteRun(runId, false, ex.Message, 0, 0);
+                RunService.CompleteRun(runId, false, ex.Message, 0, 0);
             }
         }
     }
