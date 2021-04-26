@@ -4,8 +4,7 @@ using DeltaSnapshot;
 
 namespace TesterCs {
     public class CacheEntry<T> : ICacheEntryType<T> where T : class, IDataSetEntity, new() {
-        public long CacheEntryId { get; set; }
-        public int DataSetId { get; set; }
+        public int SubscriptionDataSetId { get; set; }
         public long RunId { get; set; }
         public string EntityIdentifier { get; set; }
         public string EntityDeltaCode { get; set; }

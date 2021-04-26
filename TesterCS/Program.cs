@@ -25,8 +25,8 @@ using TesterCs.Database;
 
 namespace TesterCs {
     public static class Util {
-        public static IEnumerable<Entity> PullDataSet(Int32 dataSetId) {
-            Console.WriteLine("called Util.PullDataSet");
+        public static IEnumerable<Entity> PullPublisherDataSet(ISubscription subscription) {
+            Console.WriteLine("called Util.PullPublisherDataSet");
             var sourceData = new List<Entity>() {
                     new Entity() { Identifier = "MIN_DATE", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = DateTimeOffset.MinValue, BoolValue = false },
                     new Entity() { Identifier = "MAX_DATE", LongValue = Int64.MaxValue, StringValue = "abcdefghi", DateTimeOffsetValue = DateTimeOffset.MaxValue, BoolValue = true }
@@ -34,13 +34,21 @@ namespace TesterCs {
                 ,   new Entity() { Identifier = "CUR_MILL", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
                 ,   new Entity() { Identifier = "CUR_HOUR", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, 0, 0, TimeSpan.Zero), BoolValue = true }
             };
-            //return sourceData;
             foreach (var e in sourceData) yield return e;
         }
 
-        public static long StartRun(Int32 dataSetId, RunMode runMode) {
+        public class Subscription : ISubscription {
+            internal Subscription(int subscriptionDataSetId, string subscriptionDataSetFilter) {
+                SubscriptionDataSetId = subscriptionDataSetId;
+                SubscriptionDataSetFilter = subscriptionDataSetFilter;
+            }
+            public int SubscriptionDataSetId { get; set; }
+            public string SubscriptionDataSetFilter { get; set; }
+        }
+
+        public static long StartRun(Int32 subscriptionId, RunMode runMode) {
             using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
-            return repo.Insert(new Run(dataSetId, runMode));
+            return repo.Insert(new Run(subscriptionId, runMode));
         }
 
         public static void CompleteRun(Int64 runId, bool isSuccess, string statusMessage, int dataSetCount, int deltaCount) {
@@ -60,12 +68,12 @@ namespace TesterCs {
         }
 
         public static void RunGetDeltas() {
-            var dataSetId = 88;
-            var runId = Util.StartRun(dataSetId, RunMode.SET_DELTA);
+            var subscription = new Subscription(88, String.Empty);
+            var runId = Util.StartRun(subscription.SubscriptionDataSetId, RunModeType.SET_DELTA);
             try {
                 using var uow = new UnitOfWork(DatabaseUtil.GetConnection());
                 using var repoCache = new CacheEntryRepository<Entity>(uow);
-                var result = Api.Consumer.GetDeltas(dataSetId, runId, Util.PullDataSet, EmptyDataSetGetDeltasStrategy.RunSuccessWithBypass, Util.IsEqual,
+                var result = Api.Subscriber.GetDeltas(subscription, runId, Util.PullPublisherDataSet, EmptyDataSetGetDeltasStrategyType.RunSuccessWithBypass, Util.IsEqual,
                     new CacheEntryOperation<Entity>(repoCache.BeginTransaction, repoCache.CommitTransaction, repoCache.RollbackTransaction,
                         repoCache.Insert, repoCache.DeleteDeltaStateLessThanRunId, repoCache.GetLatestById, repoCache.GetRunIdMax, repoCache.GetByRunIdExcludingDeltaState));
 

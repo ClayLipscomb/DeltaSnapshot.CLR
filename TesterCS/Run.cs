@@ -21,15 +21,15 @@ using DeltaSnapshot;
 
 namespace TesterCs {
     public class Run {
-        public Run(int dataSetId, RunMode runMode) {
-                DataSetId = dataSetId;
+        public Run(int subscriptionDataSetId, RunModeType runMode) {
+                SubscriptionDataSetId = subscriptionDataSetId;
                 RunMode = runMode.ToString();
                 StatusCode = @"RUNNING";
                 StartDate = DateTimeOffset.Now;
         }
 
         public long? RunId { get; set; }
-        public int DataSetId { get; set; }
+        public int SubscriptionDataSetId { get; set; }
         public string RunMode { get; set; }
         public string StatusCode { get; set; }
         public string StatusMessage { get; set; }

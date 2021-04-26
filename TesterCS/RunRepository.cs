@@ -39,7 +39,7 @@ namespace TesterCs.Database {
             run.RunId = GetNewRunId();// DatabaseUtil.GetNextVal(@"DLTA_RUN_S", conn);
             var sql = @"INSERT INTO dlta_run (
                             run_id,
-                            data_set_id,
+                            subscription_data_set_id,
                             run_mode,
                             status_code,
                             status_message,
@@ -49,7 +49,7 @@ namespace TesterCs.Database {
                             end_date)
                         VALUES (
                             :RunId,
-                            :DataSetId,
+                            :SubscriptionDataSetId,
                             :RunMode,
                             :StatusCode,
                             :StatusMessage,
@@ -59,7 +59,7 @@ namespace TesterCs.Database {
                             :EndDate )";
             unitOfWork.Connection.Execute(sql, new {
                 run.RunId,
-                run.DataSetId,
+                run.SubscriptionDataSetId,
                 run.RunMode,
                 run.StatusCode,
                 run.StatusMessage, 

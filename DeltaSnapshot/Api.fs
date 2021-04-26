@@ -18,8 +18,6 @@
 
 namespace DeltaSnapshot
 
-//open UnitTest
-
 [<AutoOpen>]
 module internal ApiUtil =
     //let nullArg name message = raise new System.ArgumentNullException(name, message)
@@ -30,23 +28,23 @@ module internal ApiUtil =
 
 [<AutoOpen>]
 module public Api =
-    module Consumer =
+    module Subscriber =
         let GetDeltas<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-                ( dataSetId: DataSetIdPrimitive
+                ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
-                , pullDataSet: PullDataSetDelegate<'TEntity>
-                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
+                , pullDataSet: PullPublisherDataSetDelegate<'TEntity>
+                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategyType
                 , isEqual: IsEqualDelegate<'TEntity>
                 , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
-            getDeltas (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
+            getDeltas subscription (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
         let GetDeltasAndCurrents<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-                ( dataSetId: DataSetIdPrimitive
+                ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
-                , pullDataSet: PullDataSetDelegate<'TEntity>
-                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategy
+                , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
+                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategyType
                 , isEqual: IsEqualDelegate<'TEntity>
                 , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
-            getDeltasAndCurrents (DataSetIdType dataSetId) (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
+            getDeltasAndCurrents subscription (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
 
         let CreateFindCacheEntryResultSuccess (cacheEntry: ICacheEntryType<'TEntity>) = cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
         let CreateFindCacheEntryResultFailure () = FindCacheEntryResultType.NotFoundCacheEntry
