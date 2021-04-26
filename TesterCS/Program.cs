@@ -46,7 +46,7 @@ namespace TesterCs {
             public string SubscriptionDataSetFilter { get; set; }
         }
 
-        public static long StartRun(Int32 subscriptionId, RunMode runMode) {
+        public static long StartRun(Int32 subscriptionId, RunModeType runMode) {
             using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
             return repo.Insert(new Run(subscriptionId, runMode));
         }
