@@ -11,6 +11,3 @@ CREATE TABLE DLTA.dlta_run (
 	start_date							TIMESTAMP,
 	end_date							TIMESTAMP
 );
-
---CREATE UNIQUE INDEX DLTA.dlta_run_pk ON DLTA.dlta_run(run_id);
---ALTER TABLE DLTA.dlta_run ADD ( CONSTRAINT dlta_run_pk PRIMARY KEY (run_id) USING INDEX DLTA.dlta_run_pk);

@@ -14,3 +14,5 @@ ALTER TABLE DLTA.dlta_cache_snapshot
 ADD CONSTRAINT fk_cache_entry_run
   FOREIGN KEY (run_id)
   REFERENCES dlta_run (run_id);
+
+CREATE UNIQUE INDEX DLTA.dlta_cache_run_set_entity ON DLTA.dlta_cache_snapshot(run_id, subscription_data_set_id, entity_identifier);
