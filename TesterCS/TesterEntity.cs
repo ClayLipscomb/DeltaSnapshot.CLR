@@ -20,13 +20,13 @@ using System;
 using DeltaSnapshot;
 
 namespace TesterCs {
-    public class Entity : IDataSetEntity {
+    public class TesterEntity : IDataSetEntity {
         public string Identifier { get; set; }
         public long? LongValue { get; set; }
         public string StringValue { get; set; }
         public DateTimeOffset? DateTimeOffsetValue { get; set; }
         public bool? BoolValue { get; set; }
-        public static bool IsEqual(Entity dt1, Entity dt2) {
+        public static bool IsEqual(TesterEntity dt1, TesterEntity dt2) {
             if (dt1 == null || dt2 == null) return false;
             if (ReferenceEquals(dt1, dt2)) return true;
 

@@ -5,7 +5,7 @@ CREATE TABLE DLTA.dlta_cache_snapshot (
     run_id                              INTEGER NOT NULL,
     entity_identifier                   VARCHAR2(4000) NOT NULL,
     entity_delta_code                   VARCHAR2(3) NOT NULL,
-    entity_delta_date                   TIMESTAMP NOT NULL,
+    entity_delta_date                   TIMESTAMP WITH TIME ZONE NOT NULL,
     entity_data_current                 CLOB NOT NULL,
     entity_data_previous                CLOB
 );

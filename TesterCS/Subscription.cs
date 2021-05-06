@@ -25,7 +25,7 @@ namespace TesterCs {
             SubscriptionDataSetId = subscriptionDataSetId;
             SubscriptionDataSetFilter = subscriptionDataSetFilter;
         }
-        public int SubscriptionDataSetId { get; set; }
-        public string SubscriptionDataSetFilter { get; set; }
+        public int SubscriptionDataSetId { get; }
+        public string SubscriptionDataSetFilter { get; }
     }
 }

@@ -29,13 +29,13 @@ module internal ApiUtil =
 [<AutoOpen>]
 module public Api =
     module Subscriber =
-        let GetDeltas<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+        let GetDeltas<'TCachePrimaryKey, 'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
                 , pullDataSet: PullPublisherDataSetDelegate<'TEntity>
                 , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategyType
                 , isEqual: IsEqualDelegate<'TEntity>
-                , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
+                , cacheEntryOperation: CacheEntryOperation<'TCachePrimaryKey, 'TEntity> ) = 
             getDeltas subscription (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
         let GetDeltasAndCurrents<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( subscription: ISubscription
@@ -43,7 +43,7 @@ module public Api =
                 , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
                 , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategyType
                 , isEqual: IsEqualDelegate<'TEntity>
-                , cacheEntryOperation: CacheEntryOperation<'TEntity> ) = 
+                , cacheEntryOperation: CacheEntryOperation<'TCachePrimaryKey, 'TEntity> ) = 
             getDeltasAndCurrents subscription (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
 
         let CreateFindCacheEntryResultSuccess (cacheEntry: ICacheEntryType<'TEntity>) = cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
