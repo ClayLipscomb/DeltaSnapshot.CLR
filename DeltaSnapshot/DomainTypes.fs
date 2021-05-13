@@ -20,6 +20,9 @@ namespace DeltaSnapshot
 
 open System 
 
+type internal ProcessedType<'T> = ProcessedType of 'T
+type internal PersistedType<'T> = PersistedType of 'T
+
 type internal SnapshotDatePrimitive = DateTimeOffset
 
 type internal CountPrimitive = Int32
@@ -52,81 +55,58 @@ type public DeltaStateType = | CUR | ADD | UPD | DEL with
 type public RunModeType = | SET_DELTA | SET_ALL (*| SET_RESET | ATC_ALL | ATC_DELTA | ATC_RESET*) with
     override this.ToString() = this |> Union.fromDuCaseToString
 
-/// A .NET data set entity that can be tracked for deltas
+/// Interface of .NET data set entity that can be tracked for deltas
+[<AllowNullLiteral>]
 type public IDataSetEntity = 
     abstract member Identifier: EntityIdentifierPrimitive with get 
 
-/// interface of a subscription
+/// Interface of a subscription
 type public ISubscription =
     abstract member SubscriptionDataSetId: SubscriptionDataSetIdPrimitive with get
     abstract member SubscriptionDataSetFilter: string with get
 
-/// record of delta snapshot (message) 
+/// Record of delta snapshot (message) 
 [<NoEquality;NoComparison>]
 type public DeltaSnapshotMessage<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
     { Id: EntityIdentifierType; Delta: DeltaStateType; Date: SnapshotDatePrimitive; IsFull: bool; Cur: 'TEntity; Prv: 'TEntity }
 
-/// class of delta snapshot (message) 
-//[<NoEquality;NoComparison>]
-//type public DeltaSnapshotType<'TEntity when 'TEntity :> IEntityTrackable and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null>
-//        internal (id: EntityIdentifierType, delta: DeltaStateType, isFull: bool, curr: 'TEntity, prev: 'TEntity) = 
-//    member this.Id with get() = id          // instead of "Identifier" in order to conserve serialization size
-//    member this.Delta with get() = delta 
-//    member this.SnapshotDate with get() :SnapshotDatePrimitive = DateTimeOffset.Now
-//    member this.IsFull with get() = isFull
-//    member this.Cur with get() = curr
-//    member this.Prv with get() = prev
-
-/// interface of a cache row 
-type public ICacheEntryType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
-    /// Set by subscriber upon database insert
-    //abstract member CacheEntryId: CacheEntryIdPrimitive with get, set
-    abstract member SubscriptionDataSetId: SubscriptionDataSetIdPrimitive  with get, set
-    abstract member RunId: RunIdPrimitive with get, set
-    abstract member EntityIdentifier: EntityIdentifierType with get, set
-    abstract member EntityDeltaCode: DeltaStatePrimitive with get, set
-    abstract member EntityDeltaDate: SnapshotDatePrimitive with get, set
-    abstract member EntityDataCurrent: 'TEntity with get, set
-    abstract member EntityDataPrevious: 'TEntity with get, set
-
-/// class of a cache row
+/// Immutable cache row. Primary key will have default value prior to insert. 
 [<NoEquality;NoComparison>]
-type public CacheEntryType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null>
-        internal (subscriptionDataSetId, runId, entityIdentifier, deltaState: DeltaStateType, deltaDate, rowCurrent, rowPrevious) =
-    interface ICacheEntryType<'TEntity> with
-        //member val CacheEntryId = 0L with get, set
-        member val SubscriptionDataSetId = subscriptionDataSetId with get, set
-        member val RunId = runId with get, set
-        member val EntityIdentifier = entityIdentifier with get, set
-        member val EntityDeltaCode = deltaState.ToString() with get, set
-        member val EntityDeltaDate = deltaDate with get, set 
-        member val EntityDataCurrent = rowCurrent with get, set
-        member val EntityDataPrevious = rowPrevious with get, set
-
-/// record of cqche row 
-[<NoEquality;NoComparison>]
-type public DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
+type public DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
     {   PrimaryKey: 'TCachePrimaryKey; SubscriptionDataSetId: SubscriptionDataSetIdPrimitive; RunId: RunIdPrimitive; EntityIdentifier: EntityIdentifierPrimitive; 
         EntityDeltaCode: DeltaStatePrimitive; EntityDeltaDate: SnapshotDatePrimitive; EntityDataCurrent: 'TEntity; EntityDataPrevious: 'TEntity }
 
+type internal PersistProcessedCacheRowType<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    ProcessedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>> -> PersistedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>>
+type internal InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity  when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    { Insert: PersistProcessedCacheRowType<'TCachePrimaryKey, 'TEntity>; Update: PersistProcessedCacheRowType<'TCachePrimaryKey, 'TEntity> }
+
+/// Result of finding a cache row
 [<Struct;NoEquality;NoComparison>]
-type public FindCacheEntryResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    internal | NotFoundCacheEntry | FoundCacheEntry of ICacheEntryType<'TEntity> 
+type public FindCacheEntryResultType<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    internal | NotFoundCacheEntry | FoundCacheEntry of DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>
+// Result of finding latest run id of data set
 [<Struct;NoEquality;NoComparison>]
 type public FindCacheLatestRunIdResultType = 
     internal | NotFoundRunId | FoundRunId of RunIdType
 [<Struct;NoEquality;NoComparison>]
+/// Strategy for handling an empty publisher data set during a Subscriber.GetDeltas(). Does not apply to Subscriber.GetDeltasAndCurrents call().
 type public EmptyDataSetGetDeltasStrategyType = 
-    | DefaultProcessing | RunSuccessWithBypass | RunFailure 
+    /// Run will be considered successful, resuling in delete deltas being generated for all cache rows.
+    | DefaultProcessing 
+    /// Run will be considered successful, but deltas will not be generated and cache table transasction will be rolled back.
+    | RunSuccessWithBypass 
+    /// Run will fail and cache table transaction will be rolled back.
+    | RunFailure 
 
 /// Record of run result
 [<NoEquality;NoComparison>]
-type public DeltaRunResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+type public RunResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     { IsSuccess: bool; RunId: RunIdPrimitive; ErrorMsgs: string seq; DeltaSnapshots: DeltaSnapshotMessage<'TEntity> seq; DataSetCount: CountPrimitive; DeltaCount: CountPrimitive }
 
 // Delegates 
 /// Determines whether two entities are equal by structure/value
-type public IsEqualDelegate<'TEntity when 'TEntity :> IDataSetEntity> = 
+type public IsEqualByValueDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     delegate of 'TEntity * 'TEntity -> bool
 /// Retrieve entire publisher data set
 type public PullPublisherDataSetDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
@@ -141,19 +121,21 @@ type public CommitTransactionDelegate =
 type public RollbackTransactionDelegate = 
     delegate of unit -> unit
 /// Insert row into cache
-type public InsertCacheEntryDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    delegate of ICacheEntryType<'TEntity> -> unit
-/// Delete all cache entries in a subscription data set with a specific delta state and prior to a specific run id
-type public DeleteCacheEntryDeltaStatePriorToRunIdDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    delegate of SubscriptionDataSetIdPrimitive * DeltaStatePrimitive * RunIdPrimitive -> unit
+type public InsertCacheEntryDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    delegate of DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> -> unit
+/// Update row in cache
+type public UpdateCacheEntryDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    delegate of DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> -> unit
+
 /// Find most recent cache entry row in subscription data set with entity identifier
-type public FindLatestCacheEntryDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    delegate of SubscriptionDataSetIdPrimitive * EntityIdentifierType -> FindCacheEntryResultType<'TEntity>
+type public FindLatestCacheEntryDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    delegate of SubscriptionDataSetIdPrimitive * EntityIdentifierType -> FindCacheEntryResultType<'TCachePrimaryKey, 'TEntity>
 /// Retrieve all cache entry rows in subscription data set by run id excluding a specifc delta state
-type public GetCacheEntryByRunIdExcludeDeltaStateDelegate<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
-    delegate of SubscriptionDataSetIdPrimitive * RunIdPrimitive * DeltaStatePrimitive -> ICacheEntryType<'TEntity> seq
+type public GetCacheEntryDataSetRunExcludeDeltaStateDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
+    delegate of SubscriptionDataSetIdPrimitive * RunIdPrimitive * DeltaStatePrimitive -> DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> seq
+
 /// Find most recent cache row run id for a subsription data set id
-type public FindCacheEntryLatestRunIdDelegate =
+type public FindCacheEntryLatestRunIdOfDataSetDelegate =
     delegate of SubscriptionDataSetIdPrimitive -> FindCacheLatestRunIdResultType
 
 /// Record of all necessary cache operations
@@ -162,8 +144,8 @@ type public CacheEntryOperation<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryK
     {   BeginTransaction: BeginTransactionDelegate;
         CommitTransaction: CommitTransactionDelegate;
         RollbackTransaction: RollbackTransactionDelegate;
-        Insert: InsertCacheEntryDelegate<'TEntity>; 
-        DeleteDeltaStatePriorToRunId: DeleteCacheEntryDeltaStatePriorToRunIdDelegate<'TEntity>; 
-        FindLatest: FindLatestCacheEntryDelegate<'TEntity>; 
-        GetRunIdLatest: FindCacheEntryLatestRunIdDelegate;
-        GetByRunIdExcludeDeltaState: GetCacheEntryByRunIdExcludeDeltaStateDelegate<'TEntity>; }
+        GetRunIdLatestOfDataSet: FindCacheEntryLatestRunIdOfDataSetDelegate;
+        Insert: InsertCacheEntryDelegate<'TCachePrimaryKey, 'TEntity>; 
+        Update: UpdateCacheEntryDelegate<'TCachePrimaryKey, 'TEntity>; 
+        FindLatest: FindLatestCacheEntryDelegate<'TCachePrimaryKey, 'TEntity>; 
+        GetDataSetRunExcludeDeltaState: GetCacheEntryDataSetRunExcludeDeltaStateDelegate<'TCachePrimaryKey, 'TEntity>; }

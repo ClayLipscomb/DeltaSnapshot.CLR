@@ -30,6 +30,7 @@ namespace TesterCache {
         public static IDbConnection GetConnection() {
             var connection = new OracleConnection("data source=XE;user id=DLTA;password=dlta;enlist=false");
             connection.Open();
+            //Console.WriteLine("Connection opened");
             return connection;
         }
 

@@ -27,11 +27,12 @@ namespace TesterCs {
         public static IEnumerable<TesterEntity> PullPublisherDataSet(ISubscription subscription) {
             Console.WriteLine("called Util.PullPublisherDataSet");
             var sourceData = new List<TesterEntity>() {
-                    new TesterEntity() { Identifier = "MIN_DATE", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = DateTimeOffset.MinValue, BoolValue = false },
-                    new TesterEntity() { Identifier = "MAX_DATE", LongValue = Int64.MaxValue, StringValue = "abcdefghi", DateTimeOffsetValue = DateTimeOffset.MaxValue, BoolValue = true }
-                ,   new TesterEntity() { Identifier = "DEFAULTS" } // all nulls/defaults
-                ,   new TesterEntity() { Identifier = "CUR_MILL", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
-                ,   new TesterEntity() { Identifier = "CUR_HOUR", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, 0, 0, TimeSpan.Zero), BoolValue = true }
+                new TesterEntity() { Identifier = "MIN_DATE", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = DateTimeOffset.MinValue, BoolValue = false }
+                , new TesterEntity() { Identifier = "MAX_DATE", LongValue = Int64.MaxValue, StringValue = "abcdefghi", DateTimeOffsetValue = DateTimeOffset.MaxValue, BoolValue = true }
+                , new TesterEntity() { Identifier = "DEFAULTS" } // all nulls/defaults
+                , new TesterEntity() { Identifier = "CUR_MILL", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
+                , new TesterEntity() { Identifier = "CUR_MINU", LongValue = 100L, StringValue = "&*(", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, DateTimeOffset.Now.Minute, 0, TimeSpan.Zero), BoolValue = true }
+                , new TesterEntity() { Identifier = "CUR_HOUR", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, 0, 0, TimeSpan.Zero), BoolValue = true }
             };
             foreach (var e in sourceData) yield return e;
         }
@@ -40,7 +41,7 @@ namespace TesterCs {
             try {
                 using var uow = new UnitOfWork(DatabaseUtil.GetConnection());
                 using var repoCache = new CacheEntryRepository<TesterEntity>(uow);
-                var result = repoCache.GetLatestByIdTest<Int64?, TesterEntity>(subscription.SubscriptionDataSetId, "CUR_MILL");
+                //var result = repoCache.GetLatestByIdTest<Int64?, TesterEntity>(subscription.SubscriptionDataSetId, "CUR_MILL");
             } catch (Exception ex) {
                 Console.WriteLine(ex.Message);
             }
@@ -50,14 +51,31 @@ namespace TesterCs {
             var subscription = new Subscription(88, String.Empty);
             var runId = RunService.StartRun(subscription.SubscriptionDataSetId, RunModeType.SET_DELTA);
             try {
-                using var uow = new UnitOfWork(DatabaseUtil.GetConnection());
-                using var repoCache = new CacheEntryRepository<TesterEntity>(uow);
-                var result = Api.Subscriber.GetDeltas(subscription, runId, Util.PullPublisherDataSet, EmptyDataSetGetDeltasStrategyType.RunSuccessWithBypass, TesterEntity.IsEqual,
-                    new CacheEntryOperation<Int64?, TesterEntity>(repoCache.BeginTransaction, repoCache.CommitTransaction, repoCache.RollbackTransaction,
-                        repoCache.Insert, repoCache.DeleteDeltaStateLessThanRunId, repoCache.GetLatestById, repoCache.GetRunIdMax, repoCache.GetByRunIdExcludingDeltaState));
+                RunResultType<TesterEntity> result;
+                using (var uow = new UnitOfWork(DatabaseUtil.GetConnection())) {
+                    Console.WriteLine("Cache UOW begin");
+                    using var repoCache = new CacheEntryRepository<TesterEntity>(uow);
+                    result = Api.Subscriber.GetDeltas(
+                        subscription,
+                        runId,
+                        Util.PullPublisherDataSet,
+                        EmptyDataSetGetDeltasStrategyType.RunSuccessWithBypass,
+                        TesterEntity.IsEqual,
+                        new CacheEntryOperation<long, TesterEntity>(
+                            repoCache.BeginTransaction,
+                            repoCache.CommitTransaction,
+                            repoCache.RollbackTransaction,
 
-                var messages = result.DeltaSnapshots.ToList();
-                Console.WriteLine((result.IsSuccess ? "SUCCESS" : "FAILURE") + " " + result.ErrorMsgs.FirstOrDefault() 
+                            repoCache.GetRunIdMaxOfDataSet,
+                            repoCache.Insert<long, TesterEntity>,
+                            repoCache.Update<long, TesterEntity>,
+                            repoCache.GetLatestById<long, TesterEntity>,
+                            repoCache.GetDataSetRunExcludingDeltaState<long, TesterEntity>));
+
+                    var messages = result.DeltaSnapshots.ToList();
+                    Console.WriteLine("Cache UOW end");
+                }
+                Console.WriteLine((result.IsSuccess ? "SUCCESS" : "FAILURE") + " " + result.ErrorMsgs.FirstOrDefault()
                     + $" RunId:{result.RunId} DataSetCount:{result.DataSetCount} DeltaCount:{result.DeltaCount}");
 
                 RunService.CompleteRun(result.RunId, result.IsSuccess, result.IsSuccess ? null : result.ErrorMsgs.FirstOrDefault(), result.DataSetCount, result.DeltaCount);
@@ -69,7 +87,7 @@ namespace TesterCs {
     }
     class Program {
         static void Main(string[] args) {
-            var testRec = new DeltaSnapshotMessage<TesterEntity>("id", DeltaStateType.ADD, DateTimeOffset.Now, true, null, null);
+            //var testRec = new DeltaSnapshotMessage<TesterEntity>("id", DeltaStateType.ADD, DateTimeOffset.Now, true, null, null);
             //var testRec2 = new TestRecord<Entity>(null);
 
             Util.RunGetDeltas();

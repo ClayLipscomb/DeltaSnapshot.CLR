@@ -18,11 +18,30 @@
 
 namespace DeltaSnapshot
 
+open System
+
 #if DEBUG
 [<AutoOpen>]
 module public ApiTest =
+    let private isCacheActionUpdate result = (result.CacheAction = Update)
+
+    // helper funcs
+    let deltaSnapshotCacheRowCreateAdd runIdValue subscriptionDataSetIdValue entityLatest =
+        DeltaSnapshotCacheRow.createAdd (RunId.create runIdValue) (SubscriptionDataSetId.create subscriptionDataSetIdValue) entityLatest    
+    let deltaSnapshotCacheRowToDel cacheRow runIdValue = 
+        DeltaSnapshotCacheRow.toDel cacheRow (RunId.create runIdValue)
+    let deltaSnapshotCacheRowToCur cacheRow runIdValue = 
+        DeltaSnapshotCacheRow.toCur cacheRow (RunId.create runIdValue)
+    let deltaSnapshotCacheRowToUpd cacheRow entityLatest runIdValue = 
+        DeltaSnapshotCacheRow.toUpd cacheRow entityLatest (RunId.create runIdValue)
+
     // public proxies for unit tests
     let deltaStateFromStr = DeltaState.fromStr
-    //let dataSetIdCreate = DataSetId.create
-    //let deltaSnapshotCoreProcessDataSetEntity = DeltaSnapshotCore.processDataSetEntity
+
+    let testProcessDataSetEntity<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+        (runIdValue, subscriptionDataSetIdValue) (isEqualByValue: IsEqualByValueDelegate<'TEntity>) (entity: 'TEntity, cacheEntryRowOption: DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> option) = 
+
+        let isEqual = fun (entity1, entity2) -> isEqualByValue.Invoke (entity1, entity2)
+        let result = DeltaSnapshotCore.processDataSetEntity (SubscriptionDataSetId.create subscriptionDataSetIdValue, RunId.create runIdValue) (isEqual) (entity, cacheEntryRowOption)
+        (result.CacheRow |> Processed.value, isCacheActionUpdate result)    
 #endif

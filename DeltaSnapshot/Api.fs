@@ -18,6 +18,8 @@
 
 namespace DeltaSnapshot
 
+open System
+
 [<AutoOpen>]
 module internal ApiUtil =
     //let nullArg name message = raise new System.ArgumentNullException(name, message)
@@ -29,25 +31,31 @@ module internal ApiUtil =
 [<AutoOpen>]
 module public Api =
     module Subscriber =
-        let GetDeltas<'TCachePrimaryKey, 'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-                ( subscription: ISubscription
-                , runIdNew: RunIdPrimitive
-                , pullDataSet: PullPublisherDataSetDelegate<'TEntity>
-                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategyType
-                , isEqual: IsEqualDelegate<'TEntity>
-                , cacheEntryOperation: CacheEntryOperation<'TCachePrimaryKey, 'TEntity> ) = 
-            getDeltas subscription (RunId.create runIdNew) pullDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
-        let GetDeltasAndCurrents<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+        let GetDeltas<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
                 , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
                 , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategyType
-                , isEqual: IsEqualDelegate<'TEntity>
+                , isEqualByValue: IsEqualByValueDelegate<'TEntity>
                 , cacheEntryOperation: CacheEntryOperation<'TCachePrimaryKey, 'TEntity> ) = 
-            getDeltasAndCurrents subscription (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqual cacheEntryOperation
+            getDeltas subscription (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
+        let GetDeltasAndCurrents<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+                ( subscription: ISubscription
+                , runIdNew: RunIdPrimitive
+                , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
+                , emptyDataSetGetDeltasStrategy: EmptyDataSetGetDeltasStrategyType
+                , isEqualByValue: IsEqualByValueDelegate<'TEntity>
+                , cacheEntryOperation: CacheEntryOperation<'TCachePrimaryKey, 'TEntity> ) = 
+            getDeltasAndCurrents subscription (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
 
-        let CreateFindCacheEntryResultSuccess (cacheEntry: ICacheEntryType<'TEntity>) = cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
-        let CreateFindCacheEntryResultFailure () = FindCacheEntryResultType.NotFoundCacheEntry
+        let CreateFindCacheEntryResultSuccess<'TCachePrimaryKey, 'TEntity 
+                when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+                (cacheEntry: DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>) = 
+            cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
+        let CreateFindCacheEntryResultFailure () = 
+            FindCacheEntryResultType.NotFoundCacheEntry
     
-        let CreateFindCacheLatestRunIdResultSuccess (runId: RunIdPrimitive) = runId |> RunIdType |> FindCacheLatestRunIdResultType.FoundRunId
-        let CreateFindCacheLatestRunIdResultFailure () = FindCacheLatestRunIdResultType.NotFoundRunId
+        let CreateFindCacheLatestRunIdResultSuccess (runId: RunIdPrimitive) = 
+            runId |> RunIdType |> FindCacheLatestRunIdResultType.FoundRunId
+        let CreateFindCacheLatestRunIdResultFailure () = 
+            FindCacheLatestRunIdResultType.NotFoundRunId

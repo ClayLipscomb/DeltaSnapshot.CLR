@@ -42,7 +42,8 @@ namespace TesterCache {
 
         public void Dispose() { unitOfWork.Dispose(); }
         private const string baseFromSql = @" FROM dlta_cache_snapshot cs ";
-        private readonly string baseSelectFromSql = @"SELECT    cs.subscription_data_set_id AS SubscriptionDataSetId,
+        private readonly string baseSelectFromSql = @"SELECT    cs.cache_snapshot_id AS CacheSnapshotId,
+                                                                cs.subscription_data_set_id AS SubscriptionDataSetId,
                                                                 cs.run_id AS RunId,
                                                                 cs.entity_identifier AS EntityIdentifier,
                                                                 cs.entity_delta_code AS EntityDeltaCode,
@@ -62,18 +63,32 @@ namespace TesterCache {
         public void CommitTransaction() { unitOfWork.Commit(); }
         public void RollbackTransaction() { unitOfWork.Rollback(); }
 
-        public IEnumerable<ICacheEntryType<T>> GetByRunIdExcludingDeltaState(int subscriptionDataSetId, long runId, string deltaStateCodeExclude) {
+        public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRunExcludingDeltaState<TCachePrimaryKey, TEntity>(int subscriptionDataSetId, long runId, string deltaStateCodeExclude) 
+                where TEntity : class, IDataSetEntity, new() {
             Console.WriteLine($"called CacheEntryRepository.GetByRunIdExcludingDeltaState {deltaStateCodeExclude}");
             string query = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.run_id = :runId AND cs.entity_delta_code != :deltaStateCodeExclude ";
-            return unitOfWork.Connection.Query<CacheEntry<T>>(query, new { subscriptionDataSetId, runId, deltaStateCodeExclude });
+            var recordResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, runId, deltaStateCodeExclude })
+                .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious));
+            return recordResult;
         }
 
-        public FindCacheEntryResultType<T> GetLatestById(Int32 subscriptionDataSetId, string entityIdentifier) {
+        public FindCacheEntryResultType<long, TEntity> GetLatestById<TCachePrimaryKey, TEntity>(Int32 subscriptionDataSetId, string entityIdentifier)
+                where TEntity : class, IDataSetEntity, new() {
             string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
             var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
-            var queryResult = unitOfWork.Connection.Query<CacheEntry<T>>(query, new { subscriptionDataSetId, entityIdentifier }).FirstOrDefault();
-            return queryResult == null ? Api.Subscriber.CreateFindCacheEntryResultFailure<T>() : Api.Subscriber.CreateFindCacheEntryResultSuccess<T>(queryResult);
+            var queryResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, entityIdentifier })
+                .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious))
+                .FirstOrDefault();
+            return queryResult == null ? Api.Subscriber.CreateFindCacheEntryResultFailure<long, TEntity>() : Api.Subscriber.CreateFindCacheEntryResultSuccess<long, TEntity>(queryResult);
         }
+        //public FindCacheEntryResultType<TCachePrimaryKey, TEntity> GetLatestById2(Int32 subscriptionDataSetId, string entityIdentifier) {
+        //    string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
+        //    var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
+        //    var queryResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, entityIdentifier })
+        //        .Select(r => new DeltaSnapshotCacheRowType<TCachePrimaryKey, TEntity>(default, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious))
+        //        .FirstOrDefault();
+        //    return queryResult == null ? Api.Subscriber.CreateFindCacheEntryResultFailure<TCachePrimaryKey, TEntity>() : Api.Subscriber.CreateFindCacheEntryResultSuccess<TCachePrimaryKey, TEntity>(queryResult);
+        //}
 
         //public DeltaSnapshotCacheRowType<TPrimaryKey, TEntity> GetLatestByIdTest<TPrimaryKey, TEntity>(Int32 subscriptionDataSetId, string entityIdentifier) {
         //    string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
@@ -84,16 +99,16 @@ namespace TesterCache {
         //    return recordResult;
         //}
 
-        public DeltaSnapshotCacheRowType<TCachePrimaryKey, TEntity> GetLatestByIdTest<TCachePrimaryKey, TEntity> (Int32 subscriptionDataSetId, string entityIdentifier) where TEntity : class, IDataSetEntity, new()  {
-            string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
-            var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
-            var recordResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, entityIdentifier })
-                .Select(r => new DeltaSnapshotCacheRowType<TCachePrimaryKey, TEntity>(default, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious))
-                .FirstOrDefault();
-            return recordResult;
-        }
+        //public DeltaSnapshotCacheRowType<TCachePrimaryKey, TEntity> GetLatestByIdTest<TCachePrimaryKey, TEntity>(Int32 subscriptionDataSetId, string entityIdentifier) where TEntity : class, IDataSetEntity, new() {
+        //    string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
+        //    var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
+        //    var recordResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, entityIdentifier })
+        //        .Select(r => new DeltaSnapshotCacheRowType<TCachePrimaryKey, TEntity>(default, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious))
+        //        .FirstOrDefault();
+        //    return recordResult;
+        //}
 
-        public FindCacheLatestRunIdResultType GetRunIdMax(Int32 subscriptionDataSetId) {
+        public FindCacheLatestRunIdResultType GetRunIdMaxOfDataSet(Int32 subscriptionDataSetId) {
             var query = @"  SELECT  MAX(run_id)
                             FROM    dlta_cache_snapshot
                             WHERE   subscription_data_set_id = :subscriptionDataSetId ";
@@ -101,9 +116,12 @@ namespace TesterCache {
             return runId.HasValue ? Api.Subscriber.CreateFindCacheLatestRunIdResultSuccess(runId.Value) : Api.Subscriber.CreateFindCacheLatestRunIdResultFailure();
         }
 
-        public void Insert(ICacheEntryType<T> cacheEntry) {
-            //cacheEntry.CacheEntryId = DatabaseUtil.GetNextVal("DLTA_CACHE_ENTRY_S", unitOfWork.Connection);
-            var sql = @"INSERT INTO dlta_cache_snapshot (
+        public void Insert<TCachePrimaryKey, TEntity>(DeltaSnapshotCacheRowType<long, TEntity> cacheEntry) 
+                where TEntity : class, IDataSetEntity, new() {
+            try {
+                var cacheSnapshotId = DatabaseUtil.GetNextVal("DLTA_CACHE_SNAPSHOT_S", unitOfWork.Connection);
+                var sql = @"INSERT INTO dlta_cache_snapshot (
+                            cache_snapshot_id,
                             subscription_data_set_id,
                             run_id,
                             entity_identifier,
@@ -112,6 +130,7 @@ namespace TesterCache {
                             entity_data_current,
                             entity_data_previous )
                         VALUES (
+                            :cacheSnapshotId,
                             :SubscriptionDataSetId,
                             :RunId,
                             :EntityIdentifier,
@@ -119,48 +138,50 @@ namespace TesterCache {
                             :EntityDeltaDate,
                             :EntityDataCurrent,
                             :EntityDataPrevious ) ";
-            unitOfWork.Connection.Execute(sql, new {
-                //cacheEntry.CacheEntryId,
-                cacheEntry.SubscriptionDataSetId,
-                cacheEntry.RunId,
-                cacheEntry.EntityIdentifier,
-                cacheEntry.EntityDeltaCode,
-                cacheEntry.EntityDeltaDate,
-                cacheEntry.EntityDataCurrent,
-                cacheEntry.EntityDataPrevious
-            });
+                unitOfWork.Connection.Execute(sql, new {
+                    cacheSnapshotId,
+                    cacheEntry.SubscriptionDataSetId,
+                    cacheEntry.RunId,
+                    cacheEntry.EntityIdentifier,
+                    cacheEntry.EntityDeltaCode,
+                    cacheEntry.EntityDeltaDate,
+                    cacheEntry.EntityDataCurrent,
+                    cacheEntry.EntityDataPrevious
+                });
+            } catch (Exception ex) {
+                Console.WriteLine($"CacheEntryRepository.Insert {ex.Message}");
+                throw;
+            }
         }
 
-        public void Update(ICacheEntryType<T> cacheEntry) {
-            string sql = @" UPDATE  dlta_cache_snapshot 
-                            SET     data_set_id             = :DataSetId,
-                                    run_id                  = :RunId,
-                                    entity_identifier       = :EntityIdentifier,
-                                    entity_delta_code       = :EntityDeltaCode,
-                                    entity_delta_date       = :EntityDeltaDate,
-                                    entity_data_current     = :EntityDataCurrent,
-                                    entity_data_previous    = :EntityDataPrevious
-                            WHERE   entity_identifier = :EntityIdentifier
-                              AND   run_id = :RunId ";
-            unitOfWork.Connection.Execute(sql, new {
-                cacheEntry.SubscriptionDataSetId,
-                cacheEntry.RunId,
-                cacheEntry.EntityIdentifier,
-                cacheEntry.EntityDeltaCode,
-                cacheEntry.EntityDeltaDate,
-                cacheEntry.EntityDataCurrent,
-                cacheEntry.EntityDataPrevious//,
-                //cacheEntry.EntityIdentifier
-            });
+        public void Update<TCachePrimaryKey, TEntity>(DeltaSnapshotCacheRowType<long, TEntity> cacheEntry) 
+                where TEntity : class, IDataSetEntity, new() {
+            try {
+                string sql = @" UPDATE  dlta_cache_snapshot 
+                            SET     subscription_data_set_id    = :SubscriptionDataSetId,
+                                    run_id                      = :RunId,
+                                    entity_identifier           = :EntityIdentifier,
+                                    entity_delta_code           = :EntityDeltaCode,
+                                    entity_delta_date           = :EntityDeltaDate,
+                                    entity_data_current         = :EntityDataCurrent,
+                                    entity_data_previous        = :EntityDataPrevious
+                            WHERE   cache_snapshot_id = :PrimaryKey ";
+                unitOfWork.Connection.Execute(sql, new {
+                    cacheEntry.SubscriptionDataSetId,
+                    cacheEntry.RunId,
+                    cacheEntry.EntityIdentifier,
+                    cacheEntry.EntityDeltaCode,
+                    cacheEntry.EntityDeltaDate,
+                    cacheEntry.EntityDataCurrent,
+                    cacheEntry.EntityDataPrevious,
+                    cacheEntry.PrimaryKey
+                });
+            } catch (Exception ex) {
+                Console.WriteLine($"CacheEntryRepository.Insert {ex.Message}");
+                throw;
+            }
         }
 
-        public void DeleteDeltaStateLessThanRunId(int subscriptionDataSetId, string deltaStateCode, long runId) {
-            string sql = @" DELETE FROM dlta_cache_snapshot 
-                            WHERE       subscription_data_set_id = :subscriptionDataSetId 
-                                AND     entity_delta_code = :deltaStateCode
-                                AND     run_id < :runId ";
-            unitOfWork.Connection.Execute(sql, new { subscriptionDataSetId, deltaStateCode, runId });
-        }
         public void DeleteSubscriptionDataSet(int subscriptionDataSetId) {
             string sql = @" DELETE FROM dlta_cache_snapshot 
                             WHERE       subscription_data_set_id = :subscriptionDataSetId ";
