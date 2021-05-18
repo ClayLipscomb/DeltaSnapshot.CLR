@@ -126,28 +126,28 @@ module internal DeltaSnapshotCore =
         match cacheEntryFoundOption with
         | None ->                                                           // fresh add
             printfnDebug     $"{printId} NotFound               ->  ADD insert"
-            { CacheRow = Processed.create (DeltaSnapshotCacheRow.createAdd runId subscriptionDataSetId entity); CacheAction = Insert }
+            { CacheRowProcessed = Processed.create (DeltaSnapshotCacheRow.createAdd runId subscriptionDataSetId entity); CacheActionPending = Insert }
         | Some cacheEntryFound -> 
             match isEqual (cacheEntryFound.EntityDataCurrent, entity), DeltaState.fromStr cacheEntryFound.EntityDeltaCode with
             | true, Some DEL | false, Some DEL ->                            // prior delete has been added back
                 printfnDebug $"{printId} Found    (DEL)         ->reADD insert"
-                { CacheRow = Processed.create (DeltaSnapshotCacheRow.toAdd cacheEntryFound entity runId); CacheAction = Insert }
+                { CacheRowProcessed = Processed.create (DeltaSnapshotCacheRow.toAdd cacheEntryFound entity runId); CacheActionPending = Insert }
             | false, Some UPD | false, Some ADD ->                          // update
                 printfnDebug $"{printId} Found <> (UPD/ADD)     ->  UPD insert"
-                { CacheRow = Processed.create (DeltaSnapshotCacheRow.toUpd cacheEntryFound entity runId); CacheAction = Insert }
+                { CacheRowProcessed = Processed.create (DeltaSnapshotCacheRow.toUpd cacheEntryFound entity runId); CacheActionPending = Insert }
             | false, Some CUR | false, None (* treat invalid as CUR *) ->   // update
                 printfnDebug $"{printId} Found <> (CUR)         ->  UPD update (from existing CUR or invalid)"
-                { CacheRow = Processed.create (DeltaSnapshotCacheRow.toUpd cacheEntryFound entity runId); CacheAction = Update }
+                { CacheRowProcessed = Processed.create (DeltaSnapshotCacheRow.toUpd cacheEntryFound entity runId); CacheActionPending = Update }
             | true, Some UPD | true, Some ADD  ->                           // no change, current
                 printfnDebug $"{printId} Found == (UPD/ADD)     ->  CUR insert"                
-                { CacheRow = Processed.create (DeltaSnapshotCacheRow.toCur cacheEntryFound runId); CacheAction = Insert }
+                { CacheRowProcessed = Processed.create (DeltaSnapshotCacheRow.toCur cacheEntryFound runId); CacheActionPending = Insert }
             | true, Some CUR | true, None (* treat invalid as CUR *)    ->  // no change, curent
                 printfnDebug $"{printId} Found == (CUR)         ->  CUR update (from existing CUR or invalid)"                
-                { CacheRow = Processed.create (DeltaSnapshotCacheRow.toCur cacheEntryFound runId); CacheAction = Update }
+                { CacheRowProcessed = Processed.create (DeltaSnapshotCacheRow.toCur cacheEntryFound runId); CacheActionPending = Update }
 
     let persistProcessedDataSetEntity (insertUpdate : InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity>) (processDataSetEntityTypeResult) : PersistedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>> = 
-        processDataSetEntityTypeResult.CacheRow
-        |> match processDataSetEntityTypeResult.CacheAction with 
+        processDataSetEntityTypeResult.CacheRowProcessed
+        |> match processDataSetEntityTypeResult.CacheActionPending with 
             | Insert -> 
             //printfnDebug $"persistProcessedDataSetEntity insert"                
                 insertUpdate.Insert
@@ -168,22 +168,26 @@ module internal DeltaSnapshotCore =
             DataSetEntityIds = nonDeleteDeltaSnapshotsGross |> Array.map (fun (entityId, _) -> entityId);
             DeltaSnapshotMessages = nonDeleteDeltaSnapshotsGross |> Seq.choose (fun (_, entityOpt) -> entityOpt) } // filter out None (occurs for isFull only) and descontruct Some
 
-    let processNonDeleteCacheEntryAsDelete dataSetRun cacheEntryNonDelete =
-        let printId = $"processCacheEntryDelete {cacheEntryNonDelete.EntityDataCurrent.Identifier} {RunId.value dataSetRun.RunIdCurr}"
-        let cacheRowDelete = Processed.create (DeltaSnapshotCacheRow.toDel cacheEntryNonDelete dataSetRun.RunIdCurr)
+    let processNonDeleteCacheEntryAsDelete runIdCurr cacheEntryNonDelete =
+        let printId = $"processCacheEntryDelete {cacheEntryNonDelete.EntityIdentifier} {RunId.value runIdCurr}"
+        let cacheRowDelete = Processed.create (DeltaSnapshotCacheRow.toDel cacheEntryNonDelete runIdCurr)
         match DeltaState.fromStr cacheEntryNonDelete.EntityDeltaCode with 
-        | None (* treat invalid as CUR *) | Some DeltaStateType.DEL (* DEL not possible, treat like CUR *) | Some DeltaStateType.CUR (* convert CUR to DEL *) -> 
-            printfnDebug $"{printId} (CUR)                  ->  DEL update"
-            { CacheRow = cacheRowDelete; CacheAction = Update }
         | Some DeltaStateType.UPD | Some DeltaStateType.ADD ->
             printfnDebug $"{printId} (UPD/ADD)              ->  DEL insert"
-            { CacheRow = cacheRowDelete; CacheAction = Insert }
+            Some { CacheRowProcessed = cacheRowDelete; CacheActionPending = Insert }
+        | Some DeltaStateType.CUR (* CUR converts to DEL *) | None (* treat invalid as CUR *) ->
+            printfnDebug $"{printId} (CUR)                  ->  DEL update"
+            Some { CacheRowProcessed = cacheRowDelete; CacheActionPending = Update }
+        | Some DeltaStateType.DEL (* DEL shoud not be possible, ignore *)  -> 
+            printfnDebug $"{printId} (DEL)                  ->  ignore"
+            None
 
     let processCacheResidualForDeletes dataSetEntityIds dataSetRun persistProcessed isFull (nonDeletesPrevious : DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>[]) =
         printfnDebug "cacheNonDeletes count: %i" nonDeletesPrevious.Length
         nonDeletesPrevious
             |> Array.filter (fun cacheEntryNonDelete -> dataSetEntityIds |> (Array.exists (fun id -> id = cacheEntryNonDelete.EntityIdentifier)) |> not) 
-            |> Array.Parallel.map (processNonDeleteCacheEntryAsDelete dataSetRun)
+            |> Array.Parallel.map (processNonDeleteCacheEntryAsDelete dataSetRun.RunIdCurr)
+            |> Array.choose id
             |> Array.Parallel.map persistProcessed
             |> Array.Parallel.map (DeltaSnapshotMessage.ofDeltaSnapshotCacheRowPersisted isFull)
             |> Array.choose id
@@ -225,11 +229,13 @@ module internal DeltaSnapshotCore =
                         |> Array.ofSeq;      
                     commitAndReturn (RunResult.createSuccess (runId, @"Success.", deltaSnapshots, processDataSetResult.DataSetCount, DeltaCount.create deltaSnapshots.Length))
                 | true, EmptyDataSetGetDeltasStrategyType.RunFailure -> 
-                    rollbackAndReturn (RunResult.createFailure (runId, @"Data set is empty."))
+                    rollbackAndReturn (RunResult.createFailure (runId, @"Publisher data set is empty."))
                 | true, EmptyDataSetGetDeltasStrategyType.RunSuccessWithBypass ->
-                    rollbackAndReturn (RunResult.createSuccess (runId, @"Run bypassed due to empty data set.", Seq.empty, DataSetCount.zero, DeltaCount.zero))
+                    rollbackAndReturn (RunResult.createSuccess (runId, @"Run bypassed due to empty publisher data set.", Seq.empty, DataSetCount.zero, DeltaCount.zero))
         with
-            | _ as ex -> rollbackAndReturn (RunResult.createFailure (runId, ex.Message))
+            | _ as ex -> 
+                printfnDebug "Unexpected buildSnapshots exception %s %i %s %s" (DateTimeOffset.Now.ToString()) (RunId.value runId) (if isFull then @"full" else @"deltas") ex.Message
+                rollbackAndReturn (RunResult.createFailure (runId, ex.Message))
 
     let getDeltas subscription = buildSnapshots false subscription
     let getDeltasAndCurrents subscription = buildSnapshots true subscription 

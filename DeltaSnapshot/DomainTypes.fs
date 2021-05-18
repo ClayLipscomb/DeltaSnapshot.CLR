@@ -20,36 +20,33 @@ namespace DeltaSnapshot
 
 open System 
 
+/////////////////////////////////////////////
+// Internal type aliases affecting public API        
+type internal RunIdPrimitive = Int64
+type internal SubscriptionDataSetIdPrimitive = Int32
+type internal EntityIdentifierPrimitive = string
+type internal SnapshotDatePrimitive = DateTimeOffset
+type internal CountPrimitive = Int32
+type internal DeltaStatePrimitive = string
+
+/////////////////
+// Internal types
 type internal ProcessedType<'T> = ProcessedType of 'T
 type internal PersistedType<'T> = PersistedType of 'T
 
-type internal SnapshotDatePrimitive = DateTimeOffset
-
-type internal CountPrimitive = Int32
 type internal DataSetCountType = internal DataSetCountType of CountPrimitive
 type internal DeltaCountType = internal DeltaCountType of CountPrimitive
-
-type internal RunIdPrimitive = Int64
 type internal RunIdType = internal RunIdType of RunIdPrimitive
-
-type internal SubscriptionDataSetIdPrimitive = Int32
 type internal SubscriptionDataSetIdType = internal SubscriptionDataSetIdType of SubscriptionDataSetIdPrimitive
-
-type internal EntityIdentifierPrimitive = string
 type internal EntityIdentifierType = EntityIdentifierPrimitive
 
-type internal DeltaStatePrimitive = string
-
+type internal DeltaSnapshotCacheRowActionType = | Insert | Update
+type internal TransactionStartedState = TransactionStartedState
 [<Struct;NoEquality;NoComparison>]
 type internal DataSetRunType = { SubscriptionDataSetId: SubscriptionDataSetIdType; RunIdCurr: RunIdType; RunIdPrev: RunIdType option }
 
-type internal DeltaSnapshotCacheRowActionType = | Insert | Update
-
-type internal TransactionStartedState = TransactionStartedState
-
 //////////////////////////////
 // Public types 
-
 [<Struct;NoComparison>]
 type public DeltaStateType = | CUR | ADD | UPD | DEL with
     override this.ToString() = this |> Union.fromDuCaseToString
@@ -80,7 +77,6 @@ type public DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity when 'TCachePr
 
 ////////////////////////////////
 // Internal types         
-
 type internal PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     ProcessedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>> -> PersistedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>>
 type internal InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity  when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
@@ -88,11 +84,10 @@ type internal InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity  when 'TCachePri
 type internal DataSetProcessResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     { DataSetCount: DataSetCountType; DataSetEntityIds: EntityIdentifierType[]; DeltaSnapshotMessages: DeltaSnapshotMessage<'TEntity> seq }
 type internal CacheRowPendingPersistence<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
-    { CacheRow: ProcessedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>>; CacheAction: DeltaSnapshotCacheRowActionType }
+    { CacheRowProcessed: ProcessedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>>; CacheActionPending: DeltaSnapshotCacheRowActionType }
 
 //////////////////////////////
 // Public types 
-
 /// Result of finding a cache row
 [<Struct;NoEquality;NoComparison>]
 type public FindCacheEntryResultType<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
