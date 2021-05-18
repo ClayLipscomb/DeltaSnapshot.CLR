@@ -27,12 +27,14 @@ namespace TesterCs {
         public static IEnumerable<TesterEntity> PullPublisherDataSet(ISubscription subscription) {
             Console.WriteLine("called Util.PullPublisherDataSet");
             var sourceData = new List<TesterEntity>() {
-                new TesterEntity() { Identifier = "MIN_DATE", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = DateTimeOffset.MinValue, BoolValue = false }
-                , new TesterEntity() { Identifier = "MAX_DATE", LongValue = Int64.MaxValue, StringValue = "abcdefghi", DateTimeOffsetValue = DateTimeOffset.MaxValue, BoolValue = true }
-                , new TesterEntity() { Identifier = "DEFAULTS" } // all nulls/defaults
-                , new TesterEntity() { Identifier = "CUR_MILL", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
-                , new TesterEntity() { Identifier = "CUR_MINU", LongValue = 100L, StringValue = "&*(", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, DateTimeOffset.Now.Minute, 0, TimeSpan.Zero), BoolValue = true }
+                 new TesterEntity() { Identifier = "CUR_MINU", LongValue = 100L, StringValue = "&*(", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, DateTimeOffset.Now.Minute, 0, TimeSpan.Zero), BoolValue = true }
+                //, new TesterEntity() { Identifier = "CUR_MINU", LongValue = 100L, StringValue = "&*(", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, DateTimeOffset.Now.Minute, 0, TimeSpan.Zero), BoolValue = true }
                 , new TesterEntity() { Identifier = "CUR_HOUR", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, 0, 0, TimeSpan.Zero), BoolValue = true }
+                , new TesterEntity() { Identifier = "CUR_DATE", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, 0, 0, 0, TimeSpan.Zero), BoolValue = true }
+                  //new TesterEntity() { Identifier = "MIN_LONG", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = new DateTimeOffset (2021, 1, 1, 0, 0, 0, TimeSpan.Zero), BoolValue = false }
+                //, new TesterEntity() { Identifier = "MAX_LONG", LongValue = Int64.MaxValue, StringValue = "abcdefghi", DateTimeOffsetValue = new DateTimeOffset (2021, 1, 1, 0, 0, 0, TimeSpan.Zero), BoolValue = true }
+                , new TesterEntity() { Identifier = "DEFAULTS" } // all nulls/defaults
+                //, new TesterEntity() { Identifier = "CUR_MILL", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
             };
             foreach (var e in sourceData) yield return e;
         }
@@ -53,7 +55,6 @@ namespace TesterCs {
             try {
                 RunResultType<TesterEntity> result;
                 using (var uow = new UnitOfWork(DatabaseUtil.GetConnection())) {
-                    Console.WriteLine("Cache UOW begin");
                     using var repoCache = new CacheEntryRepository<TesterEntity>(uow);
                     result = Api.Subscriber.GetDeltas(
                         subscription,
@@ -73,7 +74,6 @@ namespace TesterCs {
                             repoCache.GetDataSetRunExcludingDeltaState<long, TesterEntity>));
 
                     var messages = result.DeltaSnapshots.ToList();
-                    Console.WriteLine("Cache UOW end");
                 }
                 Console.WriteLine((result.IsSuccess ? "SUCCESS" : "FAILURE") + " " + result.ErrorMsgs.FirstOrDefault()
                     + $" RunId:{result.RunId} DataSetCount:{result.DataSetCount} DeltaCount:{result.DeltaCount}");

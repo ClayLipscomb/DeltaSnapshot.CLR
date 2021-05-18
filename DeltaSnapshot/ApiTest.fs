@@ -21,7 +21,6 @@ namespace DeltaSnapshot
 open System
 
 #if DEBUG
-[<AutoOpen>]
 module public ApiTest =
     let private isCacheActionUpdate result = (result.CacheAction = Update)
 

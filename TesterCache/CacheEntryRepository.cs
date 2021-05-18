@@ -59,9 +59,18 @@ namespace TesterCache {
         //                                                        cs.entity_data_current AS EntityDataCurrent,
         //                                                        cs.entity_data_previous AS EntityDataPrevious "
         //                                            + baseFromSql;
-        public void BeginTransaction() { unitOfWork.Begin(); }
-        public void CommitTransaction() { unitOfWork.Commit(); }
-        public void RollbackTransaction() { unitOfWork.Rollback(); }
+        public void BeginTransaction() {
+            Console.WriteLine($"called BeginTransaction()");
+            unitOfWork.Begin(); 
+        }
+        public void CommitTransaction() {
+            Console.WriteLine($"called CommitTransaction()");
+            unitOfWork.Commit(); 
+        }
+        public void RollbackTransaction() {
+            Console.WriteLine($"called RollbackTransaction()");
+            unitOfWork.Rollback(); 
+        }
 
         public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRunExcludingDeltaState<TCachePrimaryKey, TEntity>(int subscriptionDataSetId, long runId, string deltaStateCodeExclude) 
                 where TEntity : class, IDataSetEntity, new() {
@@ -109,6 +118,7 @@ namespace TesterCache {
         //}
 
         public FindCacheLatestRunIdResultType GetRunIdMaxOfDataSet(Int32 subscriptionDataSetId) {
+            Console.WriteLine($"called GetRunIdMaxOfDataSet()");
             var query = @"  SELECT  MAX(run_id)
                             FROM    dlta_cache_snapshot
                             WHERE   subscription_data_set_id = :subscriptionDataSetId ";
@@ -149,7 +159,8 @@ namespace TesterCache {
                     cacheEntry.EntityDataPrevious
                 });
             } catch (Exception ex) {
-                Console.WriteLine($"CacheEntryRepository.Insert {ex.Message}");
+                Console.WriteLine($"{nameof(Insert)} {cacheEntry.EntityIdentifier} {ex.Message}");
+                Console.WriteLine($"{nameof(Insert)} {cacheEntry.EntityIdentifier} {ex.StackTrace}");
                 throw;
             }
         }
@@ -177,7 +188,8 @@ namespace TesterCache {
                     cacheEntry.PrimaryKey
                 });
             } catch (Exception ex) {
-                Console.WriteLine($"CacheEntryRepository.Insert {ex.Message}");
+                Console.WriteLine($"{nameof(Update)} {cacheEntry.EntityIdentifier} {ex.Message}");
+                Console.WriteLine($"{nameof(Update)} {cacheEntry.EntityIdentifier} {ex.StackTrace}");
                 throw;
             }
         }

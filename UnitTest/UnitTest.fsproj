@@ -7,6 +7,10 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OtherFlags>--warnon:1182</OtherFlags>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />

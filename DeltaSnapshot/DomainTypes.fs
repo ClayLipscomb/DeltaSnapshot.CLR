@@ -45,7 +45,9 @@ type internal DataSetRunType = { SubscriptionDataSetId: SubscriptionDataSetIdTyp
 
 type internal DeltaSnapshotCacheRowActionType = | Insert | Update
 
-///////////////
+type internal TransactionStartedState = TransactionStartedState
+
+//////////////////////////////
 // Public types 
 
 [<Struct;NoComparison>]
@@ -76,10 +78,20 @@ type public DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity when 'TCachePr
     {   PrimaryKey: 'TCachePrimaryKey; SubscriptionDataSetId: SubscriptionDataSetIdPrimitive; RunId: RunIdPrimitive; EntityIdentifier: EntityIdentifierPrimitive; 
         EntityDeltaCode: DeltaStatePrimitive; EntityDeltaDate: SnapshotDatePrimitive; EntityDataCurrent: 'TEntity; EntityDataPrevious: 'TEntity }
 
-type internal PersistProcessedCacheRowType<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+////////////////////////////////
+// Internal types         
+
+type internal PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     ProcessedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>> -> PersistedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>>
 type internal InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity  when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    { Insert: PersistProcessedCacheRowType<'TCachePrimaryKey, 'TEntity>; Update: PersistProcessedCacheRowType<'TCachePrimaryKey, 'TEntity> }
+    { Insert: PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity>; Update: PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity> }
+type internal DataSetProcessResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    { DataSetCount: DataSetCountType; DataSetEntityIds: EntityIdentifierType[]; DeltaSnapshotMessages: DeltaSnapshotMessage<'TEntity> seq }
+type internal CacheRowPendingPersistence<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
+    { CacheRow: ProcessedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>>; CacheAction: DeltaSnapshotCacheRowActionType }
+
+//////////////////////////////
+// Public types 
 
 /// Result of finding a cache row
 [<Struct;NoEquality;NoComparison>]
