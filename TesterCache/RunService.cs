@@ -22,7 +22,7 @@ using DeltaSnapshot;
 
 namespace TesterCache {
     public static class RunService {
-        public static long StartRun(Int32 subscriptionId, RunModeType runMode) {
+        public static long StartRun(Int32 subscriptionId, string runMode) {
             using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
             return repo.Insert(new Run(subscriptionId, runMode));
         }

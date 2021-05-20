@@ -21,9 +21,9 @@ using DeltaSnapshot;
 
 namespace TesterCache {
     public class Run {
-        public Run(int subscriptionDataSetId, RunModeType runMode) {
+        public Run(int subscriptionDataSetId, string runMode) {
                 SubscriptionDataSetId = subscriptionDataSetId;
-                RunMode = runMode.ToString();
+                RunMode = runMode;
                 StatusCode = @"RUNNING";
                 StartDate = DateTimeOffset.Now;
         }

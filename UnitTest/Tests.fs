@@ -43,6 +43,7 @@ module internal TestFunc =
     let runIdValuePrev = 1L
     let runIdValueCurr = 2L
     let subscriptionDataSetIdValue = 88
+    let deltaCodeInvalid = "XYZ"
     let entityPrev      = Entity ("1", "PREV")
     let entityCurr      = Entity ("1", "CURR")
     let entityUpdate    = Entity ("1", "UPDATE")
@@ -97,6 +98,7 @@ let ``ProcessDataSetEntity-ReAddFromDelIsNotEqual`` () =
 [<Fact>]
 let ``ProcessDataSetEntity-UpdFromUpdIsNotEqual`` () =
     let deltaSnapshotCacheRowBaseUpd = { deltaSnapshotCacheRowBaseAdd () with EntityDeltaCode = UPD.ToString(); EntityDataPrevious = entityPrev; EntityDataCurrent = entityCurr }
+    //let deltaSnapshotCacheRowBaseUpd = { deltaSnapshotCacheRowBaseAdd () with EntityDeltaCode = UPD.ToString(); EntityDataPrevious = entityPrev; EntityDataCurrent = entityCurr }
     let (cacheRowNew, isCacheActionUpdate) = testProcessDataSetEntityDataSetRun (entityUpdate, Some deltaSnapshotCacheRowBaseUpd) 
     Assert.True (isCacheRowCoreValid cacheRowNew
         && cacheRowNew.EntityDeltaCode = UPD.ToString()
@@ -125,7 +127,7 @@ let ``ProcessDataSetEntity-UpdFromCurIsNotEqual`` () =
 
 [<Fact>]
 let ``ProcessDataSetEntity-UpdFromInvalidIsNotEqual`` () =
-    let deltaSnapshotCacheRowBaseInvalid = { (deltaSnapshotCacheRowBaseAdd ()) with EntityDeltaCode = "XYZ" }
+    let deltaSnapshotCacheRowBaseInvalid = { (deltaSnapshotCacheRowBaseAdd ()) with EntityDeltaCode = deltaCodeInvalid }
     let (cacheRowNew, isCacheActionUpdate) = testProcessDataSetEntityDataSetRun (entityUpdate, Some deltaSnapshotCacheRowBaseInvalid) 
     Assert.True (isCacheRowCoreValid cacheRowNew
         && cacheRowNew.EntityDeltaCode = UPD.ToString()
@@ -156,7 +158,7 @@ let ``ProcessDataSetEntity-CurFromUpdIsEqual`` () =
 let ``ProcessDataSetEntity-CurFromCurIsEqual`` () =
     let deltaSnapshotCacheRowBaseCur = ApiTest.deltaSnapshotCacheRowToCur (deltaSnapshotCacheRowBaseAdd ()) runIdValuePrev
     let (cacheRowNew, isCacheActionUpdate) = testProcessDataSetEntityDataSetRun (entityCurr, Some deltaSnapshotCacheRowBaseCur) 
-    Assert.True ( isCacheRowCoreValid cacheRowNew
+    Assert.True (isCacheRowCoreValid cacheRowNew
         && cacheRowNew.EntityDeltaCode = CUR.ToString()
         && (isEqualByValue cacheRowNew.EntityDataCurrent entityCurr) && cacheRowNew.EntityDataPrevious = null
         && isCacheActionUpdate
@@ -164,9 +166,9 @@ let ``ProcessDataSetEntity-CurFromCurIsEqual`` () =
 
 [<Fact>]
 let ``ProcessDataSetEntity-CurFromInvalidIsEqual`` () =
-    let deltaSnapshotCacheRowBaseInvalid = { (deltaSnapshotCacheRowBaseAdd ()) with EntityDeltaCode = "XYZ" }
+    let deltaSnapshotCacheRowBaseInvalid = { (deltaSnapshotCacheRowBaseAdd ()) with EntityDeltaCode = deltaCodeInvalid }
     let (cacheRowNew, isCacheActionUpdate) = testProcessDataSetEntityDataSetRun (entityCurr, Some deltaSnapshotCacheRowBaseInvalid) 
-    Assert.True ( isCacheRowCoreValid cacheRowNew
+    Assert.True (isCacheRowCoreValid cacheRowNew
         && cacheRowNew.EntityDeltaCode = CUR.ToString()
         && (isEqualByValue cacheRowNew.EntityDataCurrent entityCurr) && cacheRowNew.EntityDataPrevious = null
         && isCacheActionUpdate
@@ -211,15 +213,10 @@ let ``ProcessNonDeleteCacheEntryAsDelete-FromCur`` () =
 
 [<Fact>]
 let ``ProcessNonDeleteCacheEntryAsDelete-FromInvalid`` () =
-    let deltaSnapshotCacheRowBaseInvalid = { ApiTest.deltaSnapshotCacheRowToCur (deltaSnapshotCacheRowBaseAdd ()) runIdValuePrev with EntityDeltaCode = "XYZ" }
+    let deltaSnapshotCacheRowBaseInvalid = { ApiTest.deltaSnapshotCacheRowToCur (deltaSnapshotCacheRowBaseAdd ()) runIdValuePrev with EntityDeltaCode = deltaCodeInvalid }
     match ApiTest.testProcessNonDeleteCacheEntryAsDelete runIdValueCurr deltaSnapshotCacheRowBaseInvalid with
-    | Some (cacheRowNew, isCacheActionUpdate) ->
-        Assert.True ( isCacheRowCoreValid cacheRowNew
-            && cacheRowNew.EntityDeltaCode = DEL.ToString()
-            && (cacheRowNew.EntityDataCurrent = null && isEqualByValue cacheRowNew.EntityDataPrevious entityCurr)
-            && isCacheActionUpdate 
-        )
-    | None -> Assert.True(false)
+    | Some (_, _) -> Assert.True(false)
+    | None -> Assert.True(true)
 
 [<Fact>]
 let ``ProcessNonDeleteCacheEntryAsDelete-FromDel`` () =
