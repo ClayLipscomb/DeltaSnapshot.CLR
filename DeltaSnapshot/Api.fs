@@ -38,31 +38,36 @@ module public Api =
             FindCacheEntryResultType.NotFoundCacheEntry
 
     module Subscriber =
-        let GetDeltasBatch<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+        let PullDeltasBatch<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
                 , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
                 , emptyDataSetGetDeltasStrategy: EmptyPublisherDataSetGetDeltasStrategyType
                 , isEqualByValue: IsEqualByValueDelegate<'TEntity>
-                , cacheEntryOperation: CacheEntryOperationBatch<'TCachePrimaryKey, 'TEntity> ) = 
-            getDeltasBatch (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
-        let GetDeltasAndCurrentsBatch<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+                , cacheEntryOperation: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity> ) = 
+            pullDeltasBatch (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
+        let PullDeltasAndCurrentsBatch<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
                 , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
                 , emptyDataSetGetDeltasStrategy: EmptyPublisherDataSetGetDeltasStrategyType
                 , isEqualByValue: IsEqualByValueDelegate<'TEntity>
-                , cacheEntryOperation: CacheEntryOperationBatch<'TCachePrimaryKey, 'TEntity> ) = 
-            getDeltasAndCurrentsBatch (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
+                , cacheEntryOperation: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity> ) = 
+            pullDeltasAndCurrentsBatch (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
 
-        //let CreateFindCacheEntryResultSuccess<'TCachePrimaryKey, 'TEntity 
-        //        when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-        //        (cacheEntry: DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>) = 
-        //    cacheEntry |> FindCacheEntryResultType.FoundCacheEntry
-        //let CreateFindCacheEntryResultFailure () = 
-        //    FindCacheEntryResultType.NotFoundCacheEntry
-    
         let CreateFindCacheLatestRunIdResultSuccess (runId: RunIdPrimitive) = 
-            runId |> RunIdType |> FindCacheLatestRunIdResultType.FoundRunId
+            runId |> RunIdType |> FindCacheNewestRunIdResultType.FoundRunId
         let CreateFindCacheLatestRunIdResultFailure () = 
-            FindCacheLatestRunIdResultType.NotFoundRunId
+            FindCacheNewestRunIdResultType.NotFoundRunId
+        let CreateCacheOperationBatch<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+            (   beginTransaction: BeginTransactionDelegate, commitTransaction: CommitTransactionDelegate, rollbackTransaction: RollbackTransactionDelegate, getRunIdLatestOfDataSet: FindNewestCacheRunIdOfDataSetDelegate,
+                insert: InsertCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>, update: UpdateCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>,
+                findNewest: FindNewestCacheDataSetEntityByIdDelegate<'TCachePrimaryKey, 'TEntity>, 
+                getDataSetRunExcludeDeltaState: GetCacheDataSetRunEntityExcludeDeltaStateDelegate<'TCachePrimaryKey, 'TEntity>) = 
+            CacheOperationBatch.create (beginTransaction, commitTransaction, rollbackTransaction, getRunIdLatestOfDataSet, insert, update, findNewest, getDataSetRunExcludeDeltaState)    
+
+    module Publisher =
+        let CreateCacheOperationEvent<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+            (   beginTransaction: BeginTransactionDelegate, commitTransaction: CommitTransactionDelegate, rollbackTransaction: RollbackTransactionDelegate,
+                insert: InsertCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>, lock: LockOldestCacheDataSetEntityByIdDelegate<'TEntity>, findNewest: FindNewestCacheDataSetEntityByIdDelegate<'TCachePrimaryKey, 'TEntity>) = 
+            CacheOperationEvent.create (beginTransaction, commitTransaction, rollbackTransaction, insert, lock, findNewest)    

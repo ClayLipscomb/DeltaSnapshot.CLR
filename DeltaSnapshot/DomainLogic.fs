@@ -21,16 +21,12 @@ namespace DeltaSnapshot
 open System 
 
 [<AutoOpen>]
-module internal Debug =
-#if DEBUG    
-    let printfnDebug = printfn  //let printfnDebug2 (format:Printf.TextWriterFormat<'a>) :'a = 'a
-#else
-    let printfnDebug = printfn  
-#endif
-    let logMsg strOption = 
-        match strOption with 
-        | Some str -> printfn "%s" str 
-        | None -> ()
+module internal OptionUtil =
+    let someIf isCreateSome value = if isCreateSome then Some value else None
+
+[<AutoOpen>]
+module internal Logging =
+    let logMsg strOption = match strOption with | Some str -> printfn "%s" str | None -> ()
 
 module internal Processed =
     let create = ProcessedType 
@@ -53,6 +49,21 @@ module internal DeltaCount =
 module internal DeltaState =
     let private unionCache = Union.getUnionCases<DeltaStateType> |> Seq.cache 
     let fromStr delaStateCandidateStr = Union.createUnionCase<DeltaStateType> unionCache delaStateCandidateStr
+module internal ProccessedCacheRowLogInfo = 
+    let create priorDeltaStateOption isRowFound isEqualsOption = 
+        { IsRowFound = isRowFound; IsEqualsOption = isEqualsOption; PriorDeltaStateOption = priorDeltaStateOption }
+
+module internal CacheOperationBatch =
+    let create<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+        (   beginTransaction, commitTransaction, rollbackTransaction, getRunIdLatestOfDataSet, insert, update, findNewest, 
+            getDataSetRunExcludeDeltaState: GetCacheDataSetRunEntityExcludeDeltaStateDelegate<'TCachePrimaryKey, 'TEntity>) = 
+        {   BeginTransaction = beginTransaction; CommitTransaction = commitTransaction; RollbackTransaction = rollbackTransaction; GetRunIdLatestOfDataSet = getRunIdLatestOfDataSet;
+            Insert = insert; Update = update; FindNewest = findNewest; GetDataSetRunExcludeDeltaState = getDataSetRunExcludeDeltaState }
+
+module internal CacheOperationEvent =
+    let create<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+        (   beginTransaction, commitTransaction, rollbackTransaction, insert, lock, findNewest: FindNewestCacheDataSetEntityByIdDelegate<'TCachePrimaryKey, 'TEntity>) = 
+        {   BeginTransaction = beginTransaction; CommitTransaction = commitTransaction; RollbackTransaction = rollbackTransaction; Insert = insert; Lock = lock; FindNewest = findNewest }
 
 module internal CacheRowPendingPersistence =
     let create<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
@@ -117,60 +128,68 @@ module internal IO =
     let execRollbackAndReturn (rollbackTransactionDelegate: RollbackTransactionDelegate) (result: RunResultType<'TEntity>) =
         do rollbackTransactionDelegate.Invoke ()
         result
-    let execGetLatestRunIdCache (findCacheLatestRunId: FindCacheEntryLatestRunIdOfDataSetDelegate) subscriptionDataSetId =
-        match findCacheLatestRunId.Invoke (SubscriptionDataSetId.value subscriptionDataSetId) with | NotFoundRunId -> None | FoundRunId runId -> Some runId
-    let execGetPreviousNonDeletesCacheAsArray (getByRunIdExcludeDeltaState: GetCacheEntryDataSetRunExcludeDeltaStateDelegate<'TCachePrimaryKey,'TEntity>) dataSetRun = 
+    let execGetLatestRunIdCache (findCacheNewestRunId: FindNewestCacheRunIdOfDataSetDelegate) subscriptionDataSetId =
+        match findCacheNewestRunId.Invoke (SubscriptionDataSetId.value subscriptionDataSetId) with | NotFoundRunId -> None | FoundRunId runId -> Some runId
+    let execGetPreviousNonDeletesCacheAsArray (getByRunIdExcludeDeltaState: GetCacheDataSetRunEntityExcludeDeltaStateDelegate<'TCachePrimaryKey,'TEntity>) dataSetRun = 
         match dataSetRun.RunIdPrev with
         | None          -> Seq.empty
         | Some runId    -> getByRunIdExcludeDeltaState.Invoke (SubscriptionDataSetId.value dataSetRun.SubscriptionDataSetId, RunId.value runId, DeltaStateType.DEL.ToString())
         |> Seq.filter(fun row -> (row.EntityDeltaCode |> DeltaState.fromStr) <> Some DeltaStateType.DEL)    // ensure result set has no deletes
         |> Array.ofSeq
-    let execFindLatestCacheEntry<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null>
-            (findLatestCacheEntry: FindLatestCacheEntryDelegate<'TCachePrimaryKey, 'TEntity>) subscriptionDataSetId entityIdentifier = 
-        match findLatestCacheEntry.Invoke (SubscriptionDataSetId.value subscriptionDataSetId, entityIdentifier) with
+    let execFindNewestCacheEntry<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null>
+            (findNewestCacheEntry: FindNewestCacheDataSetEntityByIdDelegate<'TCachePrimaryKey, 'TEntity>) subscriptionDataSetId entityIdentifier = 
+        match findNewestCacheEntry.Invoke (SubscriptionDataSetId.value subscriptionDataSetId, entityIdentifier) with
         | NotFoundCacheEntry -> None
         | FoundCacheEntry cacheEntry -> Some cacheEntry
     let execInsertCache<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null>
-            (insert: InsertCacheEntryDelegate<'TCachePrimaryKey, 'TEntity>) cacheEntryProcessed =
+            (insert: InsertCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>) cacheEntryProcessed =
         insert.Invoke (Processed.value cacheEntryProcessed) |> ignore
         cacheEntryProcessed |> Persisted.ofProcessed
     let execUpdateCache<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null>
-            (update: UpdateCacheEntryDelegate<'TCachePrimaryKey, 'TEntity>) cacheEntryProcessed =
+            (update: UpdateCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>) cacheEntryProcessed =
         do update.Invoke (Processed.value cacheEntryProcessed)
         cacheEntryProcessed |> Persisted.ofProcessed 
+    let persistProcessedDataSetEntity (action :InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity>) (processDataSetEntityTypeResult) : PersistedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>> = 
+        processDataSetEntityTypeResult.CacheRowProcessed
+        |> match processDataSetEntityTypeResult.CacheActionPending with | Insert -> action.Insert | Update -> action.Update
+    let createFuncPullDataSet<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> (pullPublisherDataSetDelegate: PullPublisherDataSetDelegate<'TEntity>, subscription) =
+        fun () -> execPullDataSet (pullPublisherDataSetDelegate, subscription)
+    let createCacheFuncBatch<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+            (cacheOperationBatch: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity>) subscriptionDataSetId =
+        (   fun (dataSetRun: DataSetRunType) -> execBeginTransaction cacheOperationBatch.BeginTransaction dataSetRun
+            , fun (result: RunResultType<'TEntity>) -> execCommitAndReturn cacheOperationBatch.CommitTransaction result 
+            , fun (result: RunResultType<'TEntity>) -> execRollbackAndReturn cacheOperationBatch.RollbackTransaction result 
+            , fun (subscriptionDataSetId) -> execGetLatestRunIdCache cacheOperationBatch.GetRunIdLatestOfDataSet subscriptionDataSetId
+            , fun (dataSetRun) -> execGetPreviousNonDeletesCacheAsArray cacheOperationBatch.GetDataSetRunExcludeDeltaState dataSetRun
+            , fun (entityIdentifer) -> execFindNewestCacheEntry cacheOperationBatch.FindNewest subscriptionDataSetId entityIdentifer
+            , fun (cacheRowPendingPersistenceType: CacheRowPendingPersistenceType<'TCachePrimaryKey, 'TEntity>) ->
+                persistProcessedDataSetEntity { Insert = execInsertCache cacheOperationBatch.Insert; Update = execUpdateCache cacheOperationBatch.Update } cacheRowPendingPersistenceType )
 
 [<AutoOpen>]
 module internal DeltaSnapshotCore = 
     let processDataSetEntity (subscriptionDataSetId, runId) (isEqual) (isLogging: bool) (entity, cacheEntryFoundOption) =
+        let someIfLogging = someIf isLogging
         match cacheEntryFoundOption with
-        | None -> CacheRowPendingPersistence.create 
-                    (DeltaSnapshotCacheRow.createAdd runId subscriptionDataSetId entity, Insert) 
-                    (match isLogging with | false -> None | true -> (Some { IsRowFound = false; IsEqualsOption = None; PriorDeltaStateOption = None })) // fresh add
+        | None -> CacheRowPendingPersistence.create                         // fresh add
+                    (DeltaSnapshotCacheRow.createAdd runId subscriptionDataSetId entity, Insert) (someIfLogging (ProccessedCacheRowLogInfo.create None false None)) 
         | Some cacheEntryFound -> 
             let toUpd = DeltaSnapshotCacheRow.toUpd cacheEntryFound entity runId
             let toCur = DeltaSnapshotCacheRow.toCur cacheEntryFound runId
             let toAdd = DeltaSnapshotCacheRow.toAdd cacheEntryFound entity runId
             let deltaStateOption = DeltaState.fromStr cacheEntryFound.EntityDeltaCode
-            match isEqual (cacheEntryFound.EntityDataCurrent, entity), deltaStateOption with
-            | true, Some DEL | false, Some DEL                          -> // re-Insert ADD (prior delete)
-                CacheRowPendingPersistence.create (toAdd, Insert) 
-                    (match isLogging with | false -> None | true -> (Some { IsRowFound = true; IsEqualsOption = None;       PriorDeltaStateOption = deltaStateOption }))
+            let isCacheAndEntityEqual = isEqual (cacheEntryFound.EntityDataCurrent, entity)
+            let logInfoOption = let isRowFound = true in (someIfLogging (ProccessedCacheRowLogInfo.create deltaStateOption isRowFound (Some isCacheAndEntityEqual)))
+            match isCacheAndEntityEqual, deltaStateOption with
+            | true, Some DEL | false, Some DEL                          -> // Insert (re)ADD (prior delete)
+                CacheRowPendingPersistence.create (toAdd, Insert) logInfoOption
             | false, Some UPD | false, Some ADD                         -> // Insert UPD
-                CacheRowPendingPersistence.create (toUpd, Insert) 
-                    (match isLogging with | false -> None | true -> (Some { IsRowFound = true; IsEqualsOption = Some false; PriorDeltaStateOption = deltaStateOption }))
+                CacheRowPendingPersistence.create (toUpd, Insert) logInfoOption
             | false, Some CUR | false, None (* treat invalid as CUR *)  -> // Update UPD
-                CacheRowPendingPersistence.create (toUpd, Update) 
-                    (match isLogging with | false -> None | true -> (Some { IsRowFound = true; IsEqualsOption = Some false; PriorDeltaStateOption = deltaStateOption }))
+                CacheRowPendingPersistence.create (toUpd, Update) logInfoOption
             | true, Some UPD | true, Some ADD                           -> // Insert CUR, no change
-                CacheRowPendingPersistence.create (toCur, Insert) 
-                    (match isLogging with | false -> None | true -> (Some { IsRowFound = true; IsEqualsOption = Some true;  PriorDeltaStateOption = deltaStateOption }))
+                CacheRowPendingPersistence.create (toCur, Insert) logInfoOption
             | true, Some CUR | true, None (* treat invalid as CUR *)    -> // Update CUR, no change,
-                CacheRowPendingPersistence.create (toCur, Update) 
-                    (match isLogging with | false -> None | true -> (Some { IsRowFound = true; IsEqualsOption = Some true;  PriorDeltaStateOption = deltaStateOption }))
-
-    let persistProcessedDataSetEntity (action :InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity>) (processDataSetEntityTypeResult) : PersistedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>> = 
-        processDataSetEntityTypeResult.CacheRowProcessed
-        |> match processDataSetEntityTypeResult.CacheActionPending with | Insert -> action.Insert | Update -> action.Update
+                CacheRowPendingPersistence.create (toCur, Update) logInfoOption
 
     let processDataSet (dataSetRun: DataSetRunType, dataSet, isEqual, persistProcessed, findLatestCache, runResultScope) isLogging (transactionStartedState: TransactionStartedState) =
         transactionStartedState |> ignore
@@ -188,12 +207,12 @@ module internal DeltaSnapshotCore =
     let processNonDeleteCacheEntryAsDelete runIdCurr isLogging cacheEntryNonDelete =
         let cacheRowDelete = (DeltaSnapshotCacheRow.toDel cacheEntryNonDelete runIdCurr)
         let deltaStateOption = DeltaState.fromStr cacheEntryNonDelete.EntityDeltaCode
-        let logInfoOption = (match isLogging with | false -> None | true -> (Some { IsRowFound = true; IsEqualsOption = None; PriorDeltaStateOption = deltaStateOption }))
+        let logInfoOption = if isLogging then Some (ProccessedCacheRowLogInfo.create deltaStateOption true None) else None
         match deltaStateOption with 
         | Some DeltaStateType.UPD | Some DeltaStateType.ADD ->
-            CacheRowPendingPersistence.create (cacheRowDelete, Insert) logInfoOption |> Some
+            (CacheRowPendingPersistence.create (cacheRowDelete, Insert) logInfoOption) |> Some
         | Some DeltaStateType.CUR (* CUR converts to DEL *) ->
-            CacheRowPendingPersistence.create (cacheRowDelete, Update) logInfoOption |> Some
+            (CacheRowPendingPersistence.create (cacheRowDelete, Update) logInfoOption) |> Some
         | None (* invalid *) | Some DeltaStateType.DEL (* DEL shoud not be possible *) -> // ignore these
             None
 
@@ -210,7 +229,7 @@ module internal DeltaSnapshotCore =
 
     let private buildSnapshots<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
         (runResultScope: RunResultScopeType) (deltaSnapshotPattern: DeltaSnapshotPatternType) (subscription: ISubscription) (runId: RunIdType) (pullPublisherDataSetDelegate: PullPublisherDataSetDelegate<'TEntity>) 
-        (emptyDataSetGetDeltasStrategy: EmptyPublisherDataSetGetDeltasStrategyType) (isEqualByValue: IsEqualByValueDelegate<'TEntity>) (cacheEntryOperation: CacheEntryOperationBatch<'TCachePrimaryKey, 'TEntity>) =        
+        (emptyDataSetGetDeltasStrategy: EmptyPublisherDataSetGetDeltasStrategyType) (isEqualByValue: IsEqualByValueDelegate<'TEntity>) (cacheOperationBatch: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity>) =        
 
         // initializations
         let isLogging = true
@@ -218,14 +237,9 @@ module internal DeltaSnapshotCore =
         do logMsg (if isLogging then String.Format ("buildSnapshots {0} {1} {2}", deltaSnapshotPattern.ToString(), runResultScope.ToString(), DateTimeOffset.Now.ToString()) |> Some else None)        
 
         // prepare IO and misc functions
-        let beginTransaction = IO.execBeginTransaction cacheEntryOperation.BeginTransaction
-        let commitAndReturn = IO.execCommitAndReturn cacheEntryOperation.CommitTransaction 
-        let rollbackAndReturn = IO.execRollbackAndReturn cacheEntryOperation.RollbackTransaction 
-        let getLatestRunId = IO.execGetLatestRunIdCache cacheEntryOperation.GetRunIdLatestOfDataSet
-        let getNonDeletesPreviousAsArray = IO.execGetPreviousNonDeletesCacheAsArray cacheEntryOperation.GetDataSetRunExcludeDeltaState
-        let findLatestCache = IO.execFindLatestCacheEntry cacheEntryOperation.FindLatest subscriptionDataSetId 
-        let persistProcessed = persistProcessedDataSetEntity { Insert = IO.execInsertCache cacheEntryOperation.Insert; Update = IO.execUpdateCache cacheEntryOperation.Update }
-        let pullDataSet = fun () -> IO.execPullDataSet (pullPublisherDataSetDelegate, subscription)
+        let (beginTransaction, commitAndReturn, rollbackAndReturn, getLatestRunId, getNonDeletesPreviousAsArray, findLatestCache, persistProcessed) = 
+            IO.createCacheFuncBatch cacheOperationBatch subscriptionDataSetId
+        let pullDataSet = IO.createFuncPullDataSet (pullPublisherDataSetDelegate, subscription)
         let isEqual = fun (entity1, entity2) -> isEqualByValue.Invoke (entity1, entity2)
 
         try
@@ -259,11 +273,10 @@ module internal DeltaSnapshotCore =
                         rollbackAndReturn (RunResult.createSuccess (runId, @"Run bypassed due to empty publisher data set.", Seq.empty, DataSetCount.zero, DeltaCount.zero))
         with
             | _ as ex -> 
-                do logMsg (String.Format ("Unexpected buildSnapshots exception {0} {1} {2} {3}", 
-                    (RunId.value runId), deltaSnapshotPattern, (match runResultScope with | All -> nameof All | DeltasOnly -> nameof DeltasOnly), ex.Message) |> Some)
+                do logMsg ( String.Format ($"Unexpected exception {0} {1} {2} {3} {4}", (RunId.value runId), deltaSnapshotPattern, runResultScope.ToString(), ex.Message, ex.StackTrace) |> Some)
                 rollbackAndReturn (RunResult.createFailure (runId, ex.Message))
 
-    let getDeltasBatch subscription = buildSnapshots RunResultScopeType.DeltasOnly Batch subscription
-    let getDeltasAndCurrentsBatch subscription = buildSnapshots RunResultScopeType.All Batch subscription 
+    let pullDeltasBatch subscription = buildSnapshots RunResultScopeType.DeltasOnly Batch subscription
+    let pullDeltasAndCurrentsBatch subscription = buildSnapshots RunResultScopeType.All Batch subscription 
 
     let getDeltaEvent subscription = buildSnapshots RunResultScopeType.DeltasOnly Event subscription

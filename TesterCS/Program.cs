@@ -55,21 +55,21 @@ namespace TesterCs {
                 RunResultType<TesterEntity> result;
                 using (var uow = new UnitOfWork(DatabaseUtil.GetConnection())) {
                     using var repoCache = new CacheEntryRepository<TesterEntity>(uow);
-                    result = Api.Subscriber.GetDeltasBatch(
+                    result = Api.Subscriber.PullDeltasBatch(
                         subscription,
                         runId,
                         Util.PullPublisherDataSet,
                         EmptyPublisherDataSetGetDeltasStrategyType.DefaultProcessingDeleteAll,
                         TesterEntity.IsEqual,
-                        new CacheEntryOperationBatch<long, TesterEntity>(
+                        Api.Subscriber.CreateCacheOperationBatch<long, TesterEntity>(
                             repoCache.BeginTransaction,
                             repoCache.CommitTransaction,
                             repoCache.RollbackTransaction,
-
                             repoCache.GetRunIdMaxOfDataSet,
-                            repoCache.GetLatestById<long, TesterEntity>,
+
                             repoCache.Insert<long, TesterEntity>,
                             repoCache.Update<long, TesterEntity>,
+                            repoCache.GetNewestById<long, TesterEntity>,
                             repoCache.GetDataSetRunExcludingDeltaState<long, TesterEntity>));
 
                     var messages = result.DeltaSnapshots.ToList();

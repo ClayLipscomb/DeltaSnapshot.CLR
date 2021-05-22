@@ -81,7 +81,7 @@ namespace TesterCache {
             return recordResult;
         }
 
-        public FindCacheEntryResultType<long, TEntity> GetLatestById<TCachePrimaryKey, TEntity>(Int32 subscriptionDataSetId, string entityIdentifier)
+        public FindCacheEntryResultType<long, TEntity> GetNewestById<TCachePrimaryKey, TEntity>(Int32 subscriptionDataSetId, string entityIdentifier)
                 where TEntity : class, IDataSetEntity, new() {
             string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
             var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
@@ -91,7 +91,18 @@ namespace TesterCache {
             return queryResult == null ? Api.Common.CreateFindCacheEntryResultFailure<long, TEntity>() : Api.Common.CreateFindCacheEntryResultSuccess<long, TEntity>(queryResult);
         }
 
-        public FindCacheLatestRunIdResultType GetRunIdMaxOfDataSet(Int32 subscriptionDataSetId) {
+        public bool GetOldestByIdWithLock<TEntity>(Int32 subscriptionDataSetId, string entityIdentifier) where TEntity : class, IDataSetEntity, new() {
+            string query = baseSelectFromSql
+                + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier "
+                    + @" AND cs.run_id = (SELECT MIN(run_id) FROM dlta_cache_snapshot cs WHERE cs.subscription_data_set_id = :subscriptionDataSetId  AND cs.entity_identifier = :entityIdentifier) "
+                + @" FOR UPDATE ";  // lock
+            var queryResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, entityIdentifier })
+                .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious))
+                .FirstOrDefault();
+            return queryResult != null;
+        }
+
+        public FindCacheNewestRunIdResultType GetRunIdMaxOfDataSet(Int32 subscriptionDataSetId) {
             Console.WriteLine($"CONSUMER: called GetRunIdMaxOfDataSet()");
             var query = @"  SELECT  MAX(run_id)
                             FROM    dlta_cache_snapshot
