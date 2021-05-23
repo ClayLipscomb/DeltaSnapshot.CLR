@@ -80,6 +80,14 @@ namespace TesterCache {
                 .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious));
             return recordResult;
         }
+        //public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRun<TCachePrimaryKey, TEntity>(int subscriptionDataSetId, long runId)
+        //        where TEntity : class, IDataSetEntity, new() {
+        //    Console.WriteLine($"CONSUMER: called CacheEntryRepository.GetByRunId");
+        //    string query = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.run_id = :runId  ";
+        //    var recordResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, runId })
+        //        .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious));
+        //    return recordResult;
+        //}
 
         public FindCacheEntryResultType<long, TEntity> GetNewestById<TCachePrimaryKey, TEntity>(Int32 subscriptionDataSetId, string entityIdentifier)
                 where TEntity : class, IDataSetEntity, new() {
@@ -108,7 +116,7 @@ namespace TesterCache {
                             FROM    dlta_cache_snapshot
                             WHERE   subscription_data_set_id = :subscriptionDataSetId ";
             var runId = unitOfWork.Connection.Query<long?>(query, new { subscriptionDataSetId }).FirstOrDefault();
-            return runId.HasValue ? Api.Subscriber.CreateFindCacheLatestRunIdResultSuccess(runId.Value) : Api.Subscriber.CreateFindCacheLatestRunIdResultFailure();
+            return runId.HasValue ? Api.Subscriber.CreateFindCacheNewestRunIdResultSuccess(runId.Value) : Api.Subscriber.CreateFindCacheNewestRunIdResultFailure();
         }
 
         public long Insert<TCachePrimaryKey, TEntity>(DeltaSnapshotCacheRowType<long, TEntity> cacheEntry) 

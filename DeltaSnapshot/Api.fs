@@ -38,36 +38,46 @@ module public Api =
             FindCacheEntryResultType.NotFoundCacheEntry
 
     module Subscriber =
-        let PullDeltasBatch<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+        let PullBatchDeltas<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
                 , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
                 , emptyDataSetGetDeltasStrategy: EmptyPublisherDataSetGetDeltasStrategyType
                 , isEqualByValue: IsEqualByValueDelegate<'TEntity>
                 , cacheEntryOperation: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity> ) = 
-            pullDeltasBatch (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
-        let PullDeltasAndCurrentsBatch<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-                ( subscription: ISubscription
-                , runIdNew: RunIdPrimitive
-                , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
-                , emptyDataSetGetDeltasStrategy: EmptyPublisherDataSetGetDeltasStrategyType
-                , isEqualByValue: IsEqualByValueDelegate<'TEntity>
-                , cacheEntryOperation: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity> ) = 
-            pullDeltasAndCurrentsBatch (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
+            pullBatchDeltas (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
 
-        let CreateFindCacheLatestRunIdResultSuccess (runId: RunIdPrimitive) = 
-            runId |> RunIdType |> FindCacheNewestRunIdResultType.FoundRunId
-        let CreateFindCacheLatestRunIdResultFailure () = 
+        let PullBatchDeltasAndCurrents<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+                ( subscription: ISubscription
+                , runIdNew: RunIdPrimitive
+                , pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>
+                , emptyDataSetGetDeltasStrategy: EmptyPublisherDataSetGetDeltasStrategyType
+                , isEqualByValue: IsEqualByValueDelegate<'TEntity>
+                , cacheEntryOperation: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity> ) = 
+            pullBatchDeltasAndCurrents (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
+
+        let CreateFindCacheNewestRunIdResultSuccess (runId: RunIdPrimitive) = 
+            runId |> FindCacheNewestRunIdResultType.FoundRunId
+        let CreateFindCacheNewestRunIdResultFailure () = 
             FindCacheNewestRunIdResultType.NotFoundRunId
+
         let CreateCacheOperationBatch<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-            (   beginTransaction: BeginTransactionDelegate, commitTransaction: CommitTransactionDelegate, rollbackTransaction: RollbackTransactionDelegate, getRunIdLatestOfDataSet: FindNewestCacheRunIdOfDataSetDelegate,
-                insert: InsertCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>, update: UpdateCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>,
-                findNewest: FindNewestCacheDataSetEntityByIdDelegate<'TCachePrimaryKey, 'TEntity>, 
-                getDataSetRunExcludeDeltaState: GetCacheDataSetRunEntityExcludeDeltaStateDelegate<'TCachePrimaryKey, 'TEntity>) = 
-            CacheOperationBatch.create (beginTransaction, commitTransaction, rollbackTransaction, getRunIdLatestOfDataSet, insert, update, findNewest, getDataSetRunExcludeDeltaState)    
+                ( beginTransaction: BeginTransactionDelegate
+                , commitTransaction: CommitTransactionDelegate
+                , rollbackTransaction: RollbackTransactionDelegate
+                , getRunIdNewestOfDataSet: FindNewestRunIdOfDataSetCacheDelegate
+                , insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
+                , update: UpdateDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
+                , findNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity>
+                , getDataSetRunExcludeDeltaState: GetDataSetRunEntityExcludeDeltaStateCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
+            CacheOperationBatch.create (beginTransaction, commitTransaction, rollbackTransaction, getRunIdNewestOfDataSet, insert, update, findNewest, getDataSetRunExcludeDeltaState)    
 
     module Publisher =
         let CreateCacheOperationEvent<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-            (   beginTransaction: BeginTransactionDelegate, commitTransaction: CommitTransactionDelegate, rollbackTransaction: RollbackTransactionDelegate,
-                insert: InsertCacheDataSetEntityDelegate<'TCachePrimaryKey, 'TEntity>, lock: LockOldestCacheDataSetEntityByIdDelegate<'TEntity>, findNewest: FindNewestCacheDataSetEntityByIdDelegate<'TCachePrimaryKey, 'TEntity>) = 
-            CacheOperationEvent.create (beginTransaction, commitTransaction, rollbackTransaction, insert, lock, findNewest)    
+                ( beginTransaction: BeginTransactionDelegate
+                , commitTransaction: CommitTransactionDelegate
+                , rollbackTransaction: RollbackTransactionDelegate
+                , insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
+                , lockOldest: LockOldestDataSetEntityByIdCacheDelegate<'TEntity>
+                , findNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
+            CacheOperationEvent.create (beginTransaction, commitTransaction, rollbackTransaction, insert, lockOldest, findNewest)    
