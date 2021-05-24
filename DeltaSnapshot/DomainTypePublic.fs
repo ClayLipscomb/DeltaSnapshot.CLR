@@ -89,30 +89,35 @@ type public ISubscription =
     abstract member SubscriptionDataSetId: SubscriptionDataSetIdPrimitive with get
     /// Subscription-specific filter to be applied to publisher data set (optional)
     abstract member SubscriptionDataSetFilter: string with get
+
 /// Result of finding a cache row
 [<Struct;NoEquality;NoComparison>]
 type public FindCacheEntryResultType<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     internal | NotFoundCacheEntry | FoundCacheEntry of DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>
+
 // Result of finding latest run id of data set
 [<Struct;NoEquality;NoComparison>]
 type public FindCacheNewestRunIdResultType = 
     internal | NotFoundRunId | FoundRunId of RunIdPrimitive
+
 [<Struct;NoEquality;NoComparison>]
 /// Strategy for handling an empty publisher data set during a Subscriber.GetDeltas(). Does not apply to Subscriber.GetDeltasAndCurrents call().
 type public EmptyPublisherDataSetGetDeltasStrategyType = 
     /// Run will be considered successful, resuling in delete deltas being generated for all cached rows.
     | DefaultProcessingDeleteAll 
-    /// Run will be considered "successful", but deltas will not be generated and cache will not change.
+    /// Run will be considered "successful", but deltas will not be generated and cache table transaction will be rolled back..
     | RunSuccessWithBypass 
     /// Run will fail and cache table transaction will be rolled back.
     | RunFailure 
+
 [<Struct;NoEquality;NoComparison>]
 /// Event strategy for locking the subscription data set cache for a specific entity
 type public EventCacheLockingStrategyType = 
-    /// No locking will occur. Use for single instance deployment (not distributed) of DeltaSnapshot.
-    | NoLocking
-    /// Locking will occur. Use for multi instance deployment (distributed) of DeltaSnapshot.
-    | Locking
+    /// No cache locking will occur. Use for single instance deployment (non-distributed) of DeltaSnapshot.
+    | NoCacheLocking
+    /// Cache locking will occur. Use for multi instance deployment (distributed) of DeltaSnapshot.
+    | CacheLocking
+
 /// Result of a run returned to subscriber
 [<NoEquality;NoComparison>]
 type public RunResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = { 

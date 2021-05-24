@@ -40,12 +40,12 @@ module public ApiTest =
     let testProcessDataSetEntity<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
             (runIdValue, subscriptionDataSetIdValue) (isEqualByValue: IsEqualByValueDelegate<'TEntity>) (entity: 'TEntity, cacheEntryRowOption: DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> option) = 
         let isEqual = fun (entity1, entity2) -> isEqualByValue.Invoke (entity1, entity2)
-        let result = DeltaSnapshotCore.processDataSetEntity (SubscriptionDataSetId.create subscriptionDataSetIdValue, RunId.create runIdValue) (isEqual) false (entity, cacheEntryRowOption)
+        let result = DeltaSnapshotCore.processDataSetEntity (SubscriptionDataSetId.create subscriptionDataSetIdValue, RunId.create runIdValue) (isEqual) (entity, cacheEntryRowOption)
         (result.CacheRowProcessed |> Processed.value, isCacheActionUpdate result)    
 
     let testProcessNonDeleteCacheEntryAsDelete<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
             (runIdValue: RunIdPrimitive) (cacheEntryNonDelete: DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>) =
-        let result = processNonDeleteCacheEntryAsDelete (RunId.create runIdValue) false cacheEntryNonDelete 
+        let result = processNonDeleteCacheEntryAsDelete (RunId.create runIdValue) cacheEntryNonDelete 
         match result with 
             | Some r -> Some (r.CacheRowProcessed |> Processed.value, isCacheActionUpdate r)  
             | None -> None
@@ -57,5 +57,4 @@ module public ApiTest =
         DeltaSnapshotMessage.ofCacheRowPersisted DeltasOnly (PersistedType cacheRow) 
     let testMessageOfCacheRowPersistedScopeAll cacheRow = 
         DeltaSnapshotMessage.ofCacheRowPersisted All (PersistedType cacheRow) 
-
 #endif

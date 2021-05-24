@@ -28,7 +28,6 @@ module internal ApiUtil =
     let ifNoneThrowElseValue (optionType, errorMsg) = if optionType |> Option.isNone then failwith errorMsg else optionType.Value 
     let failwithNullOrEmpty desc = failwith $"{desc} cannot be null or empty" 
 
-[<AutoOpen>]
 module public Api =
     module Common = 
         let CreateFindCacheEntryResultSuccess<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
@@ -38,6 +37,22 @@ module public Api =
             FindCacheEntryResultType.NotFoundCacheEntry
 
     module Subscriber =
+        let CreateCacheOperationBatch<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
+                ( beginTransaction: BeginTransactionDelegate
+                , commitTransaction: CommitTransactionDelegate
+                , rollbackTransaction: RollbackTransactionDelegate
+                , findRunIdNewestOfDataSet: FindNewestRunIdOfDataSetCacheDelegate
+                , insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
+                , update: UpdateDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
+                , findEntityNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity>
+                , getDataSetRunExcludeDeltaState: GetDataSetRunEntityExcludeDeltaStateCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
+            CacheOperationBatch.create (beginTransaction, commitTransaction, rollbackTransaction, findRunIdNewestOfDataSet, insert, update, findEntityNewest, getDataSetRunExcludeDeltaState)    
+
+        let CreateFindCacheNewestRunIdResultSuccess (runId: RunIdPrimitive) = 
+            runId |> FindCacheNewestRunIdResultType.FoundRunId
+        let CreateFindCacheNewestRunIdResultFailure () = 
+            FindCacheNewestRunIdResultType.NotFoundRunId
+
         let PullBatchDeltas<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( subscription: ISubscription
                 , runIdNew: RunIdPrimitive
@@ -56,22 +71,6 @@ module public Api =
                 , cacheEntryOperation: CacheOperationBatchType<'TCachePrimaryKey, 'TEntity> ) = 
             pullBatchDeltasAndCurrents (subscription) (RunId.create runIdNew) pullPublisherDataSet emptyDataSetGetDeltasStrategy isEqualByValue cacheEntryOperation
 
-        let CreateFindCacheNewestRunIdResultSuccess (runId: RunIdPrimitive) = 
-            runId |> FindCacheNewestRunIdResultType.FoundRunId
-        let CreateFindCacheNewestRunIdResultFailure () = 
-            FindCacheNewestRunIdResultType.NotFoundRunId
-
-        let CreateCacheOperationBatch<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
-                ( beginTransaction: BeginTransactionDelegate
-                , commitTransaction: CommitTransactionDelegate
-                , rollbackTransaction: RollbackTransactionDelegate
-                , getRunIdNewestOfDataSet: FindNewestRunIdOfDataSetCacheDelegate
-                , insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
-                , update: UpdateDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
-                , findNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity>
-                , getDataSetRunExcludeDeltaState: GetDataSetRunEntityExcludeDeltaStateCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
-            CacheOperationBatch.create (beginTransaction, commitTransaction, rollbackTransaction, getRunIdNewestOfDataSet, insert, update, findNewest, getDataSetRunExcludeDeltaState)    
-
     module Publisher =
         let CreateCacheOperationEvent<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
                 ( beginTransaction: BeginTransactionDelegate
@@ -79,5 +78,5 @@ module public Api =
                 , rollbackTransaction: RollbackTransactionDelegate
                 , insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
                 , lockOldest: LockOldestDataSetEntityByIdCacheDelegate<'TEntity>
-                , findNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
-            CacheOperationEvent.create (beginTransaction, commitTransaction, rollbackTransaction, insert, lockOldest, findNewest)    
+                , findEntityNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
+            CacheOperationEvent.create (beginTransaction, commitTransaction, rollbackTransaction, insert, lockOldest, findEntityNewest)    
