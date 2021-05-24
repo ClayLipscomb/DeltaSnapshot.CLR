@@ -22,12 +22,12 @@ using DeltaSnapshot;
 
 namespace TesterCache {
     public static class RunService {
-        public static long StartRun(Int32 subscriptionId, string runMode) {
+        public static long StartRun(long subscriptionId, string runMode) {
             using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
             return repo.Insert(new Run(subscriptionId, runMode));
         }
 
-        public static void CompleteRun(Int64 runId, bool isSuccess, string statusMessage, int dataSetCount, int deltaCount) {
+        public static void CompleteRun(long runId, bool isSuccess, string statusMessage, int dataSetCount, int deltaCount) {
             using RunRepository repo = new RunRepository(new UnitOfWork(DatabaseUtil.GetConnection()));
             repo.Update(runId, isSuccess ? "SUCCESS" : "FAILURE", statusMessage, dataSetCount, deltaCount);
         }

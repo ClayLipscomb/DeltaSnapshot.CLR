@@ -21,7 +21,7 @@ using DeltaSnapshot;
 
 namespace TesterCache {
     public class Run {
-        public Run(int subscriptionDataSetId, string runMode) {
+        public Run(long subscriptionDataSetId, string runMode) {
                 SubscriptionDataSetId = subscriptionDataSetId;
                 RunMode = runMode;
                 StatusCode = @"RUNNING";
@@ -29,7 +29,7 @@ namespace TesterCache {
         }
 
         public long? RunId { get; set; }
-        public int SubscriptionDataSetId { get; set; }
+        public long SubscriptionDataSetId { get; set; }
         public string RunMode { get; set; }
         public string StatusCode { get; set; }
         public string StatusMessage { get; set; }

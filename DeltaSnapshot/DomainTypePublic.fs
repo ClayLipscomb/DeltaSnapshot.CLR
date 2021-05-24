@@ -23,7 +23,7 @@ open System
 /////////////////////////////////////////////
 // Internal type aliases affecting public API        
 type internal RunIdPrimitive = Int64
-type internal SubscriptionDataSetIdPrimitive = Int32
+type internal SubscriptionDataSetIdPrimitive = Int64
 type internal EntityIdentifierPrimitive = string
 type internal SnapshotDatePrimitive = DateTimeOffset
 type internal CountPrimitive = Int32

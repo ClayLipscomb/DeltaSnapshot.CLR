@@ -44,7 +44,7 @@ module internal TestFunc =
     let isEqualDelegate = IsEqualByValueDelegate (isEqualByValue)
 
     // default data values
-    let (runIdValuePrev, runIdValueCurr, subscriptionDataSetIdValue) = (1L, 2L, 14); 
+    let (runIdValuePrev, runIdValueCurr, subscriptionDataSetIdValue) = (1L, 2L, 14L); 
     let deltaCodeInvalid = "XYZ"
     let (entityPrev, entityCurr, entityUpdate) = ( Entity ("1", "PREV"), Entity ("1", "CURR"), Entity ("1", "UPDATE") )
 

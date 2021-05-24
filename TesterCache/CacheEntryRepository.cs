@@ -72,7 +72,7 @@ namespace TesterCache {
             unitOfWork.Rollback(); 
         }
 
-        public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRunExcludingDeltaState<TCachePrimaryKey, TEntity>(int subscriptionDataSetId, long runId, string deltaStateCodeExclude) 
+        public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRunExcludingDeltaState<TCachePrimaryKey, TEntity>(Int64 subscriptionDataSetId, long runId, string deltaStateCodeExclude) 
                 where TEntity : class, IDataSetEntity, new() {
             Console.WriteLine($"CONSUMER: called CacheEntryRepository.GetByRunIdExcludingDeltaState {deltaStateCodeExclude}");
             string query = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.run_id = :runId AND cs.entity_delta_code != :deltaStateCodeExclude ";
@@ -89,7 +89,7 @@ namespace TesterCache {
         //    return recordResult;
         //}
 
-        public FindCacheEntryResultType<long, TEntity> GetNewestById<TCachePrimaryKey, TEntity>(Int32 subscriptionDataSetId, string entityIdentifier)
+        public FindCacheEntryResultType<long, TEntity> GetNewestById<TCachePrimaryKey, TEntity>(long subscriptionDataSetId, string entityIdentifier)
                 where TEntity : class, IDataSetEntity, new() {
             string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
             var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
@@ -99,7 +99,7 @@ namespace TesterCache {
             return queryResult == null ? Api.Common.CreateFindCacheEntryResultFailure<long, TEntity>() : Api.Common.CreateFindCacheEntryResultSuccess<long, TEntity>(queryResult);
         }
 
-        public bool GetOldestByIdWithLock<TEntity>(Int32 subscriptionDataSetId, string entityIdentifier) where TEntity : class, IDataSetEntity, new() {
+        public bool GetOldestByIdWithLock<TEntity>(long subscriptionDataSetId, string entityIdentifier) where TEntity : class, IDataSetEntity, new() {
             string query = baseSelectFromSql
                 + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier "
                     + @" AND cs.run_id = (SELECT MIN(run_id) FROM dlta_cache_snapshot cs WHERE cs.subscription_data_set_id = :subscriptionDataSetId  AND cs.entity_identifier = :entityIdentifier) "
@@ -110,7 +110,7 @@ namespace TesterCache {
             return queryResult != null;
         }
 
-        public FindCacheNewestRunIdResultType GetRunIdMaxOfDataSet(Int32 subscriptionDataSetId) {
+        public FindCacheNewestRunIdResultType GetRunIdMaxOfDataSet(long subscriptionDataSetId) {
             Console.WriteLine($"CONSUMER: called GetRunIdMaxOfDataSet()");
             var query = @"  SELECT  MAX(run_id)
                             FROM    dlta_cache_snapshot
@@ -188,7 +188,7 @@ namespace TesterCache {
             }
         }
 
-        public void DeleteSubscriptionDataSet(int subscriptionDataSetId) {
+        public void DeleteSubscriptionDataSet(long subscriptionDataSetId) {
             string sql = @" DELETE FROM dlta_cache_snapshot 
                             WHERE       subscription_data_set_id = :subscriptionDataSetId ";
             unitOfWork.Connection.Execute(sql, new { subscriptionDataSetId });

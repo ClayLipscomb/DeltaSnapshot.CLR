@@ -33,7 +33,7 @@ type internal DeltaSnapshotCacheRowActionType = | Insert | Update
 type internal RunResultScopeType = | DeltasOnly | All
 type internal DeltaSnapshotPatternType = | Batch | Event
 type internal TransactionStartedStateType = TransactionStartedState
-
+ 
 [<Struct;NoEquality;NoComparison>]
 type internal DataSetRunType = 
     { SubscriptionDataSetId: SubscriptionDataSetIdType; RunIdCurr: RunIdType; RunIdPrev: RunIdType option }

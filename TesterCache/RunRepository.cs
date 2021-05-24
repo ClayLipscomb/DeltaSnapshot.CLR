@@ -71,7 +71,7 @@ namespace TesterCache {
             return run.RunId.Value;
         }
 
-        public void Update(Int64 runId, string statusCode, string statusMessage, Int32 dataSetCount, Int32 deltaCount) {
+        public void Update(long runId, string statusCode, string statusMessage, int dataSetCount, int deltaCount) {
             string sql = @"UPDATE dlta_run SET
                                 status_code = :StatusCode,
                                 status_message = :StatusMessage,

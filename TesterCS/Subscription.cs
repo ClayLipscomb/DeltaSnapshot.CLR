@@ -21,11 +21,11 @@ using DeltaSnapshot;
 
 namespace TesterCs {
     public class Subscription : ISubscription {
-        internal Subscription(int subscriptionDataSetId, string subscriptionDataSetFilter) {
+        internal Subscription(long subscriptionDataSetId, string subscriptionDataSetFilter) {
             SubscriptionDataSetId = subscriptionDataSetId;
             SubscriptionDataSetFilter = subscriptionDataSetFilter;
         }
-        public int SubscriptionDataSetId { get; }
+        public long SubscriptionDataSetId { get; }
         public string SubscriptionDataSetFilter { get; }
     }
 }

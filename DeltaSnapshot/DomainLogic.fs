@@ -24,10 +24,6 @@ open System
 module internal OptionUtil =
     let someIf isCreateSome value = if isCreateSome then Some value else None
 
-[<AutoOpen>]
-module internal Logging =
-    let logMsg strOption = match strOption with | Some str -> printfn "%s" str | None -> ()
-
 module internal Processed =
     let create = ProcessedType 
     let value processedType = let (ProcessedType processedTypeValue) = processedType in processedTypeValue
@@ -79,7 +75,7 @@ module internal CacheRowPendingPersistence =
             | None -> None
         { CacheRowProcessed = Processed.create cacheRow; CacheActionPending = cacheActionPending; ProcessedMessage = buildProcessMessage }
 
-module internal DeltaSnapshotCacheRow = // needs unit test
+module internal DeltaSnapshotCacheRow = // needs unit tests
     let private progress row (RunIdType runIdValue) = { row with RunId = runIdValue; EntityDeltaDate = DateTimeOffset.Now }
     let toAdd existingRow entityLatest =    // fromDelToAdd-I
         { existingRow with EntityDeltaCode = DeltaStateType.ADD.ToString(); EntityDataPrevious = null; EntityDataCurrent = entityLatest }
@@ -113,6 +109,11 @@ module internal RunResult =
         { IsSuccess = true; RunId = runIdValue; ErrorMsgs = [errorMessage]; DeltaSnapshots = deltaSnapshots; DataSetCount = dataSetCountValue; DeltaCount = deltaCountValue }
     let createFailure (RunIdType runIdValue, errorMessage) = 
         { IsSuccess = false; RunId = runIdValue; ErrorMsgs = [errorMessage]; DeltaSnapshots = Seq.empty; DataSetCount = 0; DeltaCount = 0 }
+
+[<AutoOpen>]
+module internal Logging =
+    let logMsg strOption = match strOption with | Some str -> printfn "%s" str | None -> ()
+    let logProcessedMessageAndReturn cacheRow = logMsg cacheRow.ProcessedMessage; cacheRow
 
 module internal IO = 
     let private execPullDataSet (pullPublisherDataSet: PullPublisherDataSetDelegate<'TEntity>, subscription: ISubscription) = 
@@ -214,12 +215,12 @@ module internal DeltaSnapshotCore =
         let nonDeleteDeltaSnapshotsGross = 
             dataSet |> Array.ofSeq
             |> Array.Parallel.map (fun entity -> processEntityForDataSetRun (entity, findLatestCache entity.Identifier)) 
-            |> if isLogging then Array.map (fun cacheRow -> logMsg cacheRow.ProcessedMessage; cacheRow) else Array.Parallel.map (id) 
+            |> if isLogging then Array.map logProcessedMessageAndReturn else Array.Parallel.map (id) 
             |> Array.Parallel.map persistProcessed
             |> Array.Parallel.map (fun cacheRowPersisted -> (cacheRowPersisted |> Persisted.value).EntityIdentifier, DeltaSnapshotMessage.ofCacheRowPersisted runResultScope cacheRowPersisted)
         {   DataSetCount = DataSetCount.create nonDeleteDeltaSnapshotsGross.Length;
             DataSetEntityIds = nonDeleteDeltaSnapshotsGross |> Array.map (fun (entityId, _) -> entityId);
-            DeltaSnapshotMessages = nonDeleteDeltaSnapshotsGross |> Seq.choose (fun (_, entityOpt) -> entityOpt) } // filter out None (occurs for isFull only) and descontruct Some
+            DeltaSnapshotMessages = nonDeleteDeltaSnapshotsGross |> Seq.choose (fun (_, entityOpt) -> entityOpt) } // filter out None (occurs for DeltasOnly scope) and descontruct Some
 
     let processNonDeleteCacheEntryAsDelete runIdCurr isLogging cacheEntryNonDelete =
         let cacheRowDelete = (DeltaSnapshotCacheRow.toDel cacheEntryNonDelete runIdCurr)
@@ -239,7 +240,7 @@ module internal DeltaSnapshotCore =
             |> Array.filter (fun cacheEntryNonDelete -> dataSetEntityIds |> (Array.exists (fun id -> id = cacheEntryNonDelete.EntityIdentifier)) |> not) 
             |> Array.Parallel.map (processNonDeleteCacheEntryAsDelete dataSetRun.RunIdCurr isLogging)
             |> Array.choose id
-            |> if isLogging then Array.map (fun cacheRow -> logMsg cacheRow.ProcessedMessage; cacheRow) else Array.Parallel.map (id) 
+            |> if isLogging then Array.map logProcessedMessageAndReturn else Array.Parallel.map (id) 
             |> Array.Parallel.map persistProcessed
             |> Array.Parallel.map (DeltaSnapshotMessage.ofCacheRowPersisted runResultScope)
             |> Array.choose id
