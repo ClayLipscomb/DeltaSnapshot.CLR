@@ -29,10 +29,10 @@ namespace TesterCs {
             var sourceData = new List<TesterEntity>() {
                   new TesterEntity() { Identifier = "CUR_MINU", LongValue = 100L, StringValue = "&*(", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, DateTimeOffset.Now.Minute, 0, TimeSpan.Zero), BoolValue = true }
                 , new TesterEntity() { Identifier = "CUR_HOUR", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, DateTimeOffset.Now.Hour, 0, 0, TimeSpan.Zero), BoolValue = true }
-                , new TesterEntity() { Identifier = "CUR_DATE", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, 0, 0, 0, TimeSpan.Zero), BoolValue = true }
-                , new TesterEntity() { Identifier = "MIN_LONG", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = new DateTimeOffset (2021, 1, 1, 0, 0, 0, TimeSpan.Zero), BoolValue = false }
+                //, new TesterEntity() { Identifier = "CUR_DATE", LongValue = 100L, StringValue = "!@#", DateTimeOffsetValue = new DateTimeOffset (DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, 0, 0, 0, TimeSpan.Zero), BoolValue = true }
+                //, new TesterEntity() { Identifier = "MIN_LONG", LongValue = Int64.MinValue, StringValue = "a", DateTimeOffsetValue = new DateTimeOffset (2021, 1, 1, 0, 0, 0, TimeSpan.Zero), BoolValue = false }
                 //, new TesterEntity() { Identifier = "MAX_LONG", LongValue = Int64.MaxValue, StringValue = "abcdefghi", DateTimeOffsetValue = new DateTimeOffset (2021, 1, 1, 0, 0, 0, TimeSpan.Zero), BoolValue = true }
-                , new TesterEntity() { Identifier = "DEFAULTS" } // all nulls/defaults
+                //, new TesterEntity() { Identifier = "DEFAULTS" } // all nulls/defaults
                 //, new TesterEntity() { Identifier = "CUR_MILL", LongValue = 0L, StringValue = String.Empty, DateTimeOffsetValue = DateTimeOffset.Now, BoolValue = false }
             };
             foreach (var e in sourceData) yield return e;

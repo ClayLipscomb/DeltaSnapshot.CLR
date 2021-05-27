@@ -28,6 +28,7 @@ type internal EntityIdentifierPrimitive = string
 type internal SnapshotDatePrimitive = DateTimeOffset
 type internal CountPrimitive = Int32
 type internal DeltaStatePrimitive = string
+type internal TimeoutInSecondsPrimitive = Int32
 
 /// Interface of .NET data set entity that can be tracked for deltas.
 [<AllowNullLiteral>]
@@ -111,12 +112,18 @@ type public EmptyPublisherDataSetGetDeltasStrategyType =
     | RunFailure 
 
 [<Struct;NoEquality;NoComparison>]
+type CacheLockingProceedIfLockFailureTimeoutInSeconds = public TimeoutInSeconds of TimeoutInSecondsPrimitive 
+[<Struct;NoEquality;NoComparison>]
+type CacheLockingNotifyConsumerIfLockFailureTimeoutInSeconds = public TimeoutInSeconds of TimeoutInSecondsPrimitive 
+[<Struct;NoEquality;NoComparison>]
 /// Event strategy for locking the subscription data set cache for a specific entity
 type public EventCacheLockingStrategyType = 
-    /// No cache locking will occur. Use for single instance deployment (non-distributed) of DeltaSnapshot.
-    | NoCacheLocking
-    /// Cache locking will occur. Use for multi instance deployment (distributed) of DeltaSnapshot.
-    | CacheLocking
+    /// No cache locking will occur. Only advisable for low volume event pushes by publisher.
+    | BypassCacheLocking 
+    /// If a lock attempt fails or times out, proceed with processing as though lock was successful.
+    | CacheLockingProceedIfLockFailure of CacheLockingProceedIfLockFailureTimeoutInSeconds
+    /// If a lock attempt fails or times out, notify consumer of failure instead of proceeding with processing.
+    | CacheLockingNotifyConsumerIfLockFailure // of CacheLockingNotifyConsumerIfLockFailureTimeoutInSeconds
 
 /// Result of a run returned to subscriber
 [<NoEquality;NoComparison>]
