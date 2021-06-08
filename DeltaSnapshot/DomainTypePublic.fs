@@ -28,7 +28,6 @@ type internal EntityIdentifierPrimitive = string
 type internal SnapshotDatePrimitive = DateTimeOffset
 type internal CountPrimitive = Int32
 type internal DeltaStatePrimitive = string
-type internal TimeoutInSecondsPrimitive = Int32
 
 /// Interface of .NET data set entity that can be tracked for deltas.
 [<AllowNullLiteral>]
@@ -64,7 +63,7 @@ type public DeltaSnapshotMessage<'TEntity when 'TEntity :> IDataSetEntity and 'T
         /// Previous version of entity
         Prv: 'TEntity }
 
-/// Immutable cache row. Primary key will have default value prior to insert. 
+/// Immutable cache row. Prior to insert the primary key will have its default value and must be set. 
 [<NoEquality;NoComparison>]
 type public DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = {   
         /// Primary key value of snapshot row in cache table
@@ -88,7 +87,7 @@ type public DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity when 'TCachePr
 type public ISubscription =
     /// Uniquely identifies data set of the subscriber/subscription
     abstract member SubscriptionDataSetId: SubscriptionDataSetIdPrimitive with get
-    /// Subscription-specific filter to be applied to publisher data set (optional)
+    /// Subscription-specific serialized filter to be applied to publisher data set (optional)
     abstract member SubscriptionDataSetFilter: string with get
 
 /// Result of finding a cache row
@@ -112,18 +111,14 @@ type public EmptyPublisherDataSetGetDeltasStrategyType =
     | RunFailure 
 
 [<Struct;NoEquality;NoComparison>]
-type CacheLockingProceedIfLockFailureTimeoutInSeconds = public TimeoutInSeconds of TimeoutInSecondsPrimitive 
-[<Struct;NoEquality;NoComparison>]
-type CacheLockingNotifyConsumerIfLockFailureTimeoutInSeconds = public TimeoutInSeconds of TimeoutInSecondsPrimitive 
-[<Struct;NoEquality;NoComparison>]
 /// Event strategy for locking the subscription data set cache for a specific entity
 type public EventCacheLockingStrategyType = 
     /// No cache locking will occur. Only advisable for low volume event pushes by publisher.
     | BypassCacheLocking 
     /// If a lock attempt fails or times out, proceed with processing as though lock was successful.
-    | CacheLockingProceedIfLockFailure of CacheLockingProceedIfLockFailureTimeoutInSeconds
+    | CacheLockingProceedIfLockFailure
     /// If a lock attempt fails or times out, notify consumer of failure instead of proceeding with processing.
-    | CacheLockingNotifyConsumerIfLockFailure // of CacheLockingNotifyConsumerIfLockFailureTimeoutInSeconds
+    | CacheLockingNotifyConsumerIfLockFailure
 
 /// Result of a run returned to subscriber
 [<NoEquality;NoComparison>]

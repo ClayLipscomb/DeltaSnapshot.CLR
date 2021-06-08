@@ -118,7 +118,7 @@ module internal ProcessDataSetResult =
         {   DataSetCount = DataSetCount.create 1;
             DataSetEntityIds = Array.singleton (Persisted.value cacheRowPersisted).EntityIdentifier ;
             DeltaSnapshotMessages = match DeltaSnapshotMessage.ofCacheRowPersisted runResultScope cacheRowPersisted with | Some snapshotMsg -> Array.singleton snapshotMsg | None -> Array.empty }
-    let add processDataSetResult1 processDataSetResult2 =
+    let add processDataSetResult1 processDataSetResult2 =   // monoid
         {   DataSetCount = DataSetCount.add processDataSetResult1.DataSetCount processDataSetResult2.DataSetCount;
             DataSetEntityIds = Array.append processDataSetResult1.DataSetEntityIds processDataSetResult2.DataSetEntityIds;
             DeltaSnapshotMessages = Array.append processDataSetResult1.DeltaSnapshotMessages processDataSetResult2.DeltaSnapshotMessages }
@@ -228,14 +228,16 @@ module internal DeltaSnapshotCore =
                 CacheRowPendingPersistence.create (toCur, Update) logInfoOption
 
     let private processDataSet (dataSetRun: DataSetRunType, dataSet, isEqual, persistProcessed, findLatestCache, runResultScope) (transactionStartedState: TransactionStartedStateType) =
-        transactionStartedState |> ignore
-        let processEntityForDataSetRun = processDataSetEntity (dataSetRun.SubscriptionDataSetId, dataSetRun.RunIdCurr) isEqual 
-        dataSet |> Array.ofSeq
-        |> Array.Parallel.map (fun entity -> processEntityForDataSetRun (entity, findLatestCache entity.Identifier)) 
-        |> if isLogging then Array.map CacheRowPendingPersistence.logProcessedMessageAndReturn else Array.Parallel.map (id) 
-        |> Array.Parallel.map (persistProcessed
-            >> ProcessDataSetResult.ofCacheRowPersisted runResultScope)
-        |> Array.fold ProcessDataSetResult.add (ProcessDataSetResult.zero ())
+        transactionStartedState |> ignore   // only used to confirm cache transaction begun
+        let processPersistToResult = 
+            (fun e -> processDataSetEntity (dataSetRun.SubscriptionDataSetId, dataSetRun.RunIdCurr) isEqual  (e, findLatestCache e.Identifier))
+            >> if isLogging then CacheRowPendingPersistence.logProcessedMessageAndReturn else id
+            >> persistProcessed 
+            >> ProcessDataSetResult.ofCacheRowPersisted runResultScope 
+        dataSet 
+        |> Array.ofSeq  // array required for parallel
+        |> (if isLogging then Array.map else Array.Parallel.map) processPersistToResult    // logging must map sequentially (instead of parallel) for distinct log messages
+        |> Array.fold ProcessDataSetResult.add (ProcessDataSetResult.zero ())   // monoid
         |> fun processDataSetResult -> if isLogging then ProcessDataSetResult.logCounts processDataSetResult; processDataSetResult else processDataSetResult
 
     let processNonDeleteCacheEntryAsDelete runIdCurr cacheEntryNonDelete =
@@ -251,16 +253,13 @@ module internal DeltaSnapshotCore =
             None
 
     let private processCacheResidualForDeletes dataSetEntityIds dataSetRun persistProcessed runResultScope (nonDeletesPrevious : DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> seq) =
-        //do logMsg (if isLogging then String.Format ("cacheNonDeletes count: {0}", nonDeletesPrevious.Length) |> Some else None)
         nonDeletesPrevious
-        |> Seq.filter (fun cacheEntryNonDelete -> dataSetEntityIds |> (Array.exists (fun id -> id = cacheEntryNonDelete.EntityIdentifier)) |> not) 
-        |> Seq.toArray
+        |> Seq.filter (fun cacheEntryNonDelete -> dataSetEntityIds |> (Array.exists (fun id -> id = cacheEntryNonDelete.EntityIdentifier)) |> not) // excludes entity found in pub data set
+        |> Seq.toArray  // array required for parallel
         |> Array.Parallel.map (processNonDeleteCacheEntryAsDelete dataSetRun.RunIdCurr)
         |> Array.Parallel.choose id
-        |> if isLogging then 
-                fun a -> logMsg (Some (String.Format ("nonDeletesPrevious filtered count: {0}", a.Length))); a |> Array.map CacheRowPendingPersistence.logProcessedMessageAndReturn
-           else 
-                Array.Parallel.map id 
+        |>  if isLogging then fun a -> logMsg (Some (String.Format ("nonDeletesPrevious filtered count: {0}", a.Length))); a |> Array.map CacheRowPendingPersistence.logProcessedMessageAndReturn
+            else Array.Parallel.map id 
         |> Array.Parallel.map (persistProcessed 
             >> (DeltaSnapshotMessage.ofCacheRowPersisted runResultScope))
         |> Array.Parallel.choose id

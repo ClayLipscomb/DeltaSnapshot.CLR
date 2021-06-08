@@ -16,21 +16,21 @@
 //    along with this program. If not, see<http://www.gnu.org/licenses/>.
 //------------------------------------------------------------------------------
 
-module UnitTest
+//module UnitTest
 
-open System
-open System.Diagnostics
-open Xunit
-open DeltaSnapshot
+//open System
+//open System.Diagnostics
+//open Xunit
+//open DeltaSnapshot
 
-[<Fact>]
-let ``DeltaStateType`` () =
-    //Assert.Equal(DeltaStateType.CUR, @"CUR" |> DeltaState.fromStr |> Option.get)
-    //Assert.Equal(DeltaStateType.ADD, @"ADD" |> DeltaState.fromStr |> Option.get)
-    //Assert.Equal(DeltaStateType.UPD, @"UPD" |> DeltaState.fromStr |> Option.get)
-    //Assert.Equal(DeltaStateType.DEL, @"DEL" |> DeltaState.fromStr |> Option.get)
+//[<Fact>]
+//let ``DeltaStateType`` () =
+//    //Assert.Equal(DeltaStateType.CUR, @"CUR" |> DeltaState.fromStr |> Option.get)
+//    //Assert.Equal(DeltaStateType.ADD, @"ADD" |> DeltaState.fromStr |> Option.get)
+//    //Assert.Equal(DeltaStateType.UPD, @"UPD" |> DeltaState.fromStr |> Option.get)
+//    //Assert.Equal(DeltaStateType.DEL, @"DEL" |> DeltaState.fromStr |> Option.get)
 
-    //Debug.Assert(DeltaStateType.CUR = (@"CUR" |> DeltaState.fromStr |> Option.get))
+//    //Debug.Assert(DeltaStateType.CUR = (@"CUR" |> DeltaState.fromStr |> Option.get))
 
-    Assert.True(true)
+//    Assert.True(true)
 

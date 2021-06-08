@@ -33,6 +33,9 @@ type internal DeltaSnapshotCacheRowActionType = | Insert | Update
 type internal RunResultScopeType = | DeltasOnly | All
 type internal DeltaSnapshotPatternType = | Batch | Event
 type internal TransactionStartedStateType = TransactionStartedState
+
+type internal IsRowFoundType = | RowFound | RowNotFound
+type internal IsEqualsType = | Equals | NotEquals | Unknown
  
 [<Struct;NoEquality;NoComparison>]
 type internal DataSetRunType = 

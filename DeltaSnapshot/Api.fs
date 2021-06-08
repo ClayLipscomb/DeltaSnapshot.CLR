@@ -79,4 +79,6 @@ module public Api =
                 , insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
                 , lockOldest: LockOldestDataSetEntityByIdCacheDelegate<'TEntity>
                 , findEntityNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
-            CacheOperationEvent.create (beginTransaction, commitTransaction, rollbackTransaction, insert, lockOldest, findEntityNewest)    
+            CacheOperationEvent.create (beginTransaction, commitTransaction, rollbackTransaction, insert, lockOldest, findEntityNewest)
+
+        let PushEvent (eventCacheLockingStrategyType: EventCacheLockingStrategyType) = 1
