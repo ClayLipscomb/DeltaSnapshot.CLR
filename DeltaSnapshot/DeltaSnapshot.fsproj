@@ -10,7 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="UnitTest.fs" />
     <Compile Include="Extension.fs" />
     <Compile Include="WrappedString.fs" />
     <Compile Include="Union.fs" />
