@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Remove="ignore\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Extension.fs" />
     <Compile Include="WrappedString.fs" />
     <Compile Include="Union.fs" />
