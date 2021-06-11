@@ -9,7 +9,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TesterCS", "TesterCS\Tester
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "UnitTest", "UnitTest\UnitTest.fsproj", "{2AA16318-EC12-4444-AC36-19DD25BBAB02}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TesterCache", "TesterCache\TesterCache.csproj", "{892ECB29-AE4B-4BFA-A201-FBB29528580C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TesterCache", "TesterCache\TesterCache.csproj", "{892ECB29-AE4B-4BFA-A201-FBB29528580C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{41D258C3-3B43-4AC3-9A2C-FE164C8D61CE}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
