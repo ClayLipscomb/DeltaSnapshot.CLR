@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 DeltaSnapshot/ignore/*.*
+/exclude/Delta Tracker Notes.txt
