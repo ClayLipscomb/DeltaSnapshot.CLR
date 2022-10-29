@@ -45,7 +45,7 @@ module public Api =
                 , insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
                 , update: UpdateDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
                 , findEntityNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity>
-                , getDataSetRunExcludeDeltaState: GetDataSetRunEntityExcludeDeltaStateCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
+                , getDataSetRunExcludeDeltaState: GetDataSetRunExcludeDeltaStateCacheDelegate<'TCachePrimaryKey, 'TEntity> ) = 
             CacheOperationBatch.create (beginTransaction, commitTransaction, rollbackTransaction, findRunIdNewestOfDataSet, insert, update, findEntityNewest, getDataSetRunExcludeDeltaState)    
 
         let CreateFindCacheNewestRunIdResultSuccess (runId: RunIdPrimitive) = 

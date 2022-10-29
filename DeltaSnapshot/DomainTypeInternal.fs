@@ -29,7 +29,7 @@ type internal RunIdType = internal RunIdType of RunIdPrimitive
 type internal SubscriptionDataSetIdType = internal SubscriptionDataSetIdType of SubscriptionDataSetIdPrimitive
 type internal EntityIdentifierType = EntityIdentifierPrimitive
 
-type internal DeltaSnapshotCacheRowActionType = | Insert | Update
+type internal DeltaSnapshotCacheRowActionType = | Insert | Bypass
 type internal RunResultScopeType = | DeltasOnly | All
 type internal DeltaSnapshotPatternType = | Batch | Event
 type internal TransactionStartedStateType = TransactionStartedState
@@ -44,8 +44,8 @@ type internal DataSetRunType =
 type internal PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     ProcessedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>> -> PersistedType<DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>>
 
-type internal InsertUpdateCacheType<'TCachePrimaryKey, 'TEntity  when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
-    { Insert: PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity>; Update: PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity> }
+type internal InsertCacheType<'TCachePrimaryKey, 'TEntity  when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
+    { Insert: PersistProcessedCacheRowFuncType<'TCachePrimaryKey, 'TEntity> }
 
 type internal ProcessDataSetResultType<'TEntity when 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     { DataSetCount: DataSetCountType; DataSetEntityIds: EntityIdentifierType[]; DeltaSnapshotMessages: DeltaSnapshotMessage<'TEntity>[] } 

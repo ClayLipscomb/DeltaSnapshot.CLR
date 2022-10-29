@@ -38,7 +38,7 @@ type public IDataSetEntity =
 [<Struct;NoComparison>]
 type public DeltaStateType = 
     /// Current (no change)
-    | CUR 
+    //| CUR 
     /// Add (new row)
     | ADD 
     /// Update (row has changed)
@@ -164,10 +164,10 @@ type public LockOldestDataSetEntityByIdCacheDelegate<'TEntity when 'TEntity :> I
 type public FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> = 
     delegate of SubscriptionDataSetIdPrimitive * EntityIdentifierPrimitive -> FindCacheEntryResultType<'TCachePrimaryKey, 'TEntity>
 /// Retrieve all cache entry rows in subscription data set by run id 
-type public GetDataSetRunEntityCacheDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
+type public GetDataSetRunCacheDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
     delegate of SubscriptionDataSetIdPrimitive * RunIdPrimitive -> DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> seq
 /// Retrieve all cache entry rows in subscription data set by run id excluding a specifc delta state
-type public GetDataSetRunEntityExcludeDeltaStateCacheDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
+type public GetDataSetRunExcludeDeltaStateCacheDelegate<'TCachePrimaryKey,'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> =
     delegate of SubscriptionDataSetIdPrimitive * RunIdPrimitive * DeltaStatePrimitive -> DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> seq
 /// Find most recent cache row run id for a subsription data set id
 type public FindNewestRunIdOfDataSetCacheDelegate =
@@ -183,7 +183,7 @@ type public CacheOperationBatchType<'TCachePrimaryKey, 'TEntity when 'TCachePrim
         Insert: InsertDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
         Update: UpdateDataSetEntityCacheDelegate<'TCachePrimaryKey, 'TEntity>
         FindNewest: FindNewestDataSetEntityByIdCacheDelegate<'TCachePrimaryKey, 'TEntity>
-        GetDataSetRunExcludeDeltaState: GetDataSetRunEntityExcludeDeltaStateCacheDelegate<'TCachePrimaryKey, 'TEntity> }
+        GetDataSetRunExcludeDeltaState: GetDataSetRunExcludeDeltaStateCacheDelegate<'TCachePrimaryKey, 'TEntity> }
 
 /// All cache operations required for event pattern
 [<Struct;NoEquality;NoComparison>]

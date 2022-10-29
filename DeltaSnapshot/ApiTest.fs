@@ -22,15 +22,15 @@ open System
 
 #if DEBUG
 module public ApiTest =
-    let private isCacheActionUpdate result = (result.CacheActionPending = Update)
+    //let private isCacheActionUpdate result = (result.CacheActionPending = Update)
 
     // helper funcs
     let deltaSnapshotCacheRowCreateAdd runIdValue subscriptionDataSetIdValue entityLatest =
         DeltaSnapshotCacheRow.createAdd (RunId.create runIdValue) (SubscriptionDataSetId.create subscriptionDataSetIdValue) entityLatest    
     let deltaSnapshotCacheRowToDel cacheRow runIdValue = 
         DeltaSnapshotCacheRow.toDel cacheRow (RunId.create runIdValue)
-    let deltaSnapshotCacheRowToCur cacheRow runIdValue = 
-        DeltaSnapshotCacheRow.toCur cacheRow (RunId.create runIdValue)
+    //let deltaSnapshotCacheRowToCur cacheRow runIdValue = 
+    //    DeltaSnapshotCacheRow.toCur cacheRow (RunId.create runIdValue)
     let deltaSnapshotCacheRowToUpd cacheRow entityLatest runIdValue = 
         DeltaSnapshotCacheRow.toUpd cacheRow entityLatest (RunId.create runIdValue)
 
@@ -41,13 +41,14 @@ module public ApiTest =
             (runIdValue, subscriptionDataSetIdValue) (isEqualByValue: IsEqualByValueDelegate<'TEntity>) (entity: 'TEntity, cacheEntryRowOption: DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity> option) = 
         let isEqual = fun (entity1, entity2) -> isEqualByValue.Invoke (entity1, entity2)
         let result = DeltaSnapshotCore.processDataSetEntity (SubscriptionDataSetId.create subscriptionDataSetIdValue, RunId.create runIdValue) (isEqual) (entity, cacheEntryRowOption)
-        (result.CacheRowProcessed |> Processed.value, isCacheActionUpdate result)    
+        (   result.CacheRowProcessed |> Processed.value |> Some, 
+            false )    
 
     let testProcessNonDeleteCacheEntryAsDelete<'TCachePrimaryKey, 'TEntity when 'TCachePrimaryKey :> Object and 'TEntity :> IDataSetEntity and 'TEntity : (new : unit -> 'TEntity) and 'TEntity : null> 
             (runIdValue: RunIdPrimitive) (cacheEntryNonDelete: DeltaSnapshotCacheRowType<'TCachePrimaryKey, 'TEntity>) =
         let result = processNonDeleteCacheEntryAsDelete (RunId.create runIdValue) cacheEntryNonDelete 
         match result with 
-            | Some r -> Some (r.CacheRowProcessed |> Processed.value, isCacheActionUpdate r)  
+            | Some r -> Some (r.CacheRowProcessed |> Processed.value, false)  
             | None -> None
 
     let testMessageOfCacheRowPersisted isAll cacheRow = 

@@ -74,12 +74,41 @@ namespace TesterCache {
 
         public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRunExcludingDeltaState<TCachePrimaryKey, TEntity>(Int64 subscriptionDataSetId, long runId, string deltaStateCodeExclude) 
                 where TEntity : class, IDataSetEntity, new() {
-            Console.WriteLine($"CONSUMER: called CacheEntryRepository.GetByRunIdExcludingDeltaState {deltaStateCodeExclude}");
-            string query = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.run_id = :runId AND cs.entity_delta_code != :deltaStateCodeExclude ";
+            Console.WriteLine($"CONSUMER: called CacheEntryRepository.GetByRunIdExcludingDeltaState subscriptionDataSetId:{subscriptionDataSetId} runId:{runId} deltaStateCodeExclude:{deltaStateCodeExclude}");
+            string query = baseSelectFromSql 
+                + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId 
+                        AND cs.run_id = :runId 
+                        AND cs.entity_delta_code != :deltaStateCodeExclude ";
             var recordResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, runId, deltaStateCodeExclude })
                 .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious));
             return recordResult;
         }
+
+        public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRun<TCachePrimaryKey, TEntity>(Int64 subscriptionDataSetId, long runId)
+                where TEntity : class, IDataSetEntity, new() {
+            Console.WriteLine($"CONSUMER: called CacheEntryRepository.GetByRunIdExcludingDeltaState subscriptionDataSetId:{subscriptionDataSetId} runId:{runId}");
+            string query = baseSelectFromSql
+                + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId 
+                        AND cs.run_id = :runId  ";
+            var recordResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, runId })
+                .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious));
+            return recordResult;
+        }
+
+        public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetNewestExcludingDeltaState<TCachePrimaryKey, TEntity>(Int64 subscriptionDataSetId, string deltaStateCodeExclude)
+                where TEntity : class, IDataSetEntity, new() {
+            Console.WriteLine($"CONSUMER: called CacheEntryRepository.GetDataSetNewestExcludingDeltaState subscriptionDataSetId:{subscriptionDataSetId} deltaStateCodeExclude:{deltaStateCodeExclude}");
+            string query = baseSelectFromSql 
+                + @" WHERE  cs.subscription_data_set_id = :subscriptionDataSetId 
+                        AND cs.entity_delta_code != :deltaStateCodeExclude 
+                        AND cs.run_id = (   SELECT  MAX(run_id)
+                                            FROM    dlta_cache_snapshot cs2
+                                            WHERE   cs.entity_identifier = cs2.entity_identifier ) ";
+            var recordResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, deltaStateCodeExclude })
+                .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious));
+            return recordResult;
+        }
+
         //public IEnumerable<DeltaSnapshotCacheRowType<long, TEntity>> GetDataSetRun<TCachePrimaryKey, TEntity>(int subscriptionDataSetId, long runId)
         //        where TEntity : class, IDataSetEntity, new() {
         //    Console.WriteLine($"CONSUMER: called CacheEntryRepository.GetByRunId");
@@ -91,7 +120,10 @@ namespace TesterCache {
 
         public FindCacheEntryResultType<long, TEntity> GetNewestById<TCachePrimaryKey, TEntity>(long subscriptionDataSetId, string entityIdentifier)
                 where TEntity : class, IDataSetEntity, new() {
-            string baseQuery = baseSelectFromSql + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier ORDER BY cs.entity_delta_date DESC ";
+            string baseQuery = baseSelectFromSql 
+                + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId 
+                        AND cs.entity_identifier = :entityIdentifier 
+                    ORDER BY cs.entity_delta_date DESC ";
             var query = $"SELECT * FROM ({baseQuery}) WHERE ROWNUM = 1 ";
             var queryResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, entityIdentifier })
                 .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious))
@@ -101,8 +133,12 @@ namespace TesterCache {
 
         public bool GetOldestByIdWithLock<TEntity>(long subscriptionDataSetId, string entityIdentifier) where TEntity : class, IDataSetEntity, new() {
             string query = baseSelectFromSql
-                + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId AND cs.entity_identifier = :entityIdentifier "
-                    + @" AND cs.run_id = (SELECT MIN(run_id) FROM dlta_cache_snapshot cs WHERE cs.subscription_data_set_id = :subscriptionDataSetId  AND cs.entity_identifier = :entityIdentifier) "
+                + @" WHERE cs.subscription_data_set_id = :subscriptionDataSetId 
+                        AND cs.entity_identifier = :entityIdentifier 
+                        AND cs.run_id = (   SELECT MIN(run_id) 
+                                            FROM dlta_cache_snapshot cs 
+                                            WHERE cs.subscription_data_set_id = :subscriptionDataSetId  
+                                                AND cs.entity_identifier = :entityIdentifier ) "
                 + @" FOR UPDATE ";  // lock
             var queryResult = unitOfWork.Connection.Query<CacheEntry<TEntity>>(query, new { subscriptionDataSetId, entityIdentifier })
                 .Select(r => new DeltaSnapshotCacheRowType<long, TEntity>(r.CacheSnapshotId, r.SubscriptionDataSetId, r.RunId, r.EntityIdentifier, r.EntityDeltaCode, r.EntityDeltaDate, r.EntityDataCurrent, r.EntityDataPrevious))
